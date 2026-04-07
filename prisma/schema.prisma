@@ -1,0 +1,285 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Super Admin & Multi-Tenant Architecture
+model Tenant {
+  id              String    @id @default(uuid())
+  businessName    String
+  ownerName       String
+  ownerEmail      String    @unique
+  ownerPhone      String?
+  city            String?
+  subscriptionPlan String   @default("TRIAL") // TRIAL, BASIC, PRO, ENTERPRISE
+  subscriptionExpiry DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  users           User[]
+  branches        Branch[]
+  services        Service[]
+  serviceCategories ServiceCategory[]
+  products        Product[]
+  clients         Client[]
+  appointments    Appointment[]
+  invoices        Invoice[]
+  expenses        Expense[]
+}
+
+model Branch {
+  id              String    @id @default(uuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name            String
+  city            String?
+  address         String?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  users           User[]
+  appointments    Appointment[]
+  invoices        Invoice[]
+  expenses        Expense[]
+}
+
+model User {
+  id            String    @id @default(uuid())
+  tenantId      String?   // Null means Super Admin
+  tenant        Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId      String?
+  branch        Branch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  password      String?
+  phone         String?
+  image         String?
+  role          String    @default("STAFF") // SUPER_ADMIN, SALON_ADMIN, MANAGER, RECEPTIONIST, STAFF
+  commissionRate Float?   // Percentage 0-100
+  fixedSalary   Float?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  accounts      Account[]
+  sessions      Session[]
+  appointments  Appointment[]
+  invoices      Invoice[]
+  expensesCreated Expense[]
+}
+
+// NextAuth Models
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?  @db.Text
+  access_token       String?  @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?  @db.Text
+  session_state      String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Services
+model ServiceCategory {
+  id          String    @id @default(uuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  services    Service[]
+}
+
+model Service {
+  id          String    @id @default(uuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  categoryId  String
+  category    ServiceCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name        String
+  duration    Int       // In minutes
+  price       Float     // In INR
+  gstRate     Float     // e.g., 18
+  sacCode     String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  appointmentItems AppointmentItem[]
+  invoiceItems     InvoiceItem[]
+}
+
+// Inventory
+model Product {
+  id          String    @id @default(uuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name        String
+  brand       String?
+  sku         String?
+  category    String?
+  costPrice   Float
+  sellingPrice Float
+  stockLevel  Int       @default(0)
+  minStockThreshold Int @default(5)
+  hsnCode     String?
+  gstRate     Float     @default(18)
+  isActive    Boolean   @default(true)
+  lastRestockedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  invoiceItems InvoiceItem[]
+}
+
+// Clients CRM
+model Client {
+  id              String    @id @default(uuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name            String
+  phone           String
+  email           String?
+  gender          String?
+  birthday        DateTime?
+  notes           String?
+  loyaltyPoints   Int       @default(0)
+  totalSpent      Float     @default(0)
+  visitCount      Int       @default(0)
+  lastVisit       DateTime?
+  tags            String?   // comma separated 
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  appointments    Appointment[]
+  invoices        Invoice[]
+}
+
+// Appointments
+model Appointment {
+  id          String    @id @default(uuid())
+  tenantId    String
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId    String
+  branch      Branch    @relation(fields: [branchId], references: [id])
+  clientId    String?
+  client      Client?   @relation(fields: [clientId], references: [id])
+  walkInName  String?
+  staffId     String
+  staff       User      @relation(fields: [staffId], references: [id])
+  date        DateTime
+  startTime   DateTime
+  endTime     DateTime
+  status      String    @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED, NO_SHOW
+  notes       String?
+  totalPrice  Float     @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  items       AppointmentItem[]
+}
+
+model AppointmentItem {
+  id            String      @id @default(uuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  serviceId     String
+  service       Service     @relation(fields: [serviceId], references: [id])
+  price         Float
+}
+
+// Invoices & POS
+model Invoice {
+  id              String    @id @default(uuid())
+  invoiceNumber   String    // e.g., INV-2025-0001
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId        String
+  branch          Branch    @relation(fields: [branchId], references: [id])
+  clientId        String?
+  client          Client?   @relation(fields: [clientId], references: [id])
+  walkInName      String?
+  staffId         String
+  staff           User      @relation(fields: [staffId], references: [id])
+  status          String    @default("DRAFT") // DRAFT, PENDING, PAID, OVERDUE, CANCELLED
+  subtotal        Float
+  taxAmount       Float
+  discount        Float     @default(0)
+  tips            Float     @default(0)
+  totalAmount     Float
+  amountPaid      Float     @default(0)
+  paymentMethod   String?   // CASH, UPI, CARD, LINK, SPLIT
+  paymentRef      String?
+  date            DateTime  @default(now())
+  dueDate         DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  items           InvoiceItem[]
+}
+
+model InvoiceItem {
+  id          String   @id @default(uuid())
+  invoiceId   String
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  serviceId   String?
+  service     Service? @relation(fields: [serviceId], references: [id])
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+  description String
+  quantity    Int      @default(1)
+  rate        Float
+  discount    Float    @default(0)
+  taxableAmt  Float
+  cgst        Float    @default(0)
+  sgst        Float    @default(0)
+  total       Float
+}
+
+// Expenses
+model Expense {
+  id              String    @id @default(uuid())
+  tenantId        String
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId        String?
+  branch          Branch?   @relation(fields: [branchId], references: [id])
+  categoryId      String    // Will map to fixed list of categories in code or a model
+  categoryName    String
+  amount          Float
+  date            DateTime
+  description     String?
+  paymentMethod   String?
+  vendorName      String?
+  receiptUrl      String?
+  isRecurring     Boolean   @default(false)
+  recurringFreq   String?   // DAILY, WEEKLY, MONTHLY, YEARLY
+  createdById     String
+  createdBy       User      @relation(fields: [createdById], references: [id])
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}

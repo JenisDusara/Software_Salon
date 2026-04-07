@@ -1,0 +1,122 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=DM+Sans:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer base {
+  :root {
+    /* SalonSoft Pro Design Tokens — Light Mode */
+    --background: #FAFAF9;
+    --foreground: #1C1917;
+    --card: #FFFFFF;
+    --card-foreground: #1C1917;
+    --popover: #FFFFFF;
+    --popover-foreground: #1C1917;
+    --primary: #1C1917;
+    --primary-foreground: #FFFFFF;
+    --secondary: #F5F5F4;
+    --secondary-foreground: #1C1917;
+    --muted: #F5F5F4;
+    --muted-foreground: #78716C;
+    --accent: #D97706;
+    --accent-foreground: #FFFFFF;
+    --accent-light: #FEF3C7;
+    --success: #059669;
+    --success-foreground: #FFFFFF;
+    --warning: #D97706;
+    --warning-foreground: #FFFFFF;
+    --danger: #DC2626;
+    --danger-foreground: #FFFFFF;
+    --info: #2563EB;
+    --info-foreground: #FFFFFF;
+    --destructive: #DC2626;
+    --destructive-foreground: #FFFFFF;
+    --border: #E7E5E4;
+    --input: #E7E5E4;
+    --ring: #D97706;
+    --sidebar-bg: #1C1917;
+    --sidebar-hover: #292524;
+    --sidebar-text: #A8A29E;
+    --sidebar-text-active: #FFFFFF;
+
+    /* Chart colors */
+    --chart-1: #D97706;
+    --chart-2: #059669;
+    --chart-3: #2563EB;
+    --chart-4: #DC2626;
+    --chart-5: #7C3AED;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: #0C0A09;
+    --foreground: #FAFAF9;
+    --card: #1C1917;
+    --card-foreground: #FAFAF9;
+    --popover: #1C1917;
+    --popover-foreground: #FAFAF9;
+    --primary: #D97706;
+    --primary-foreground: #1C1917;
+    --secondary: #292524;
+    --secondary-foreground: #FAFAF9;
+    --muted: #292524;
+    --muted-foreground: #A8A29E;
+    --accent: #D97706;
+    --accent-foreground: #1C1917;
+    --destructive: #DC2626;
+    --destructive-foreground: #FAFAF9;
+    --border: #292524;
+    --input: #292524;
+    --ring: #D97706;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #E7E5E4;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #A8A29E;
+}
+
+/* Sidebar transition */
+.sidebar-transition {
+  transition: width 0.2s ease, transform 0.2s ease;
+}
+
+/* Number inputs - remove spinners */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
