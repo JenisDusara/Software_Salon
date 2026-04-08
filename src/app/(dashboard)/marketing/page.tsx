@@ -1,32 +1,29 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Megaphone, MessageCircle, Star, Send, Users, TrendingUp,
-  Plus, X, CheckCircle2, Clock, ChevronRight, Gift, Bell, Heart, Tag,
+  Plus, X, CheckCircle2, Clock, ChevronRight, Gift, Bell, Heart, Tag, Loader2,
 } from "lucide-react";
-import { SAMPLE_CLIENTS } from "@/data/sampleData";
 import { buildWhatsAppUrl, getInitials, getAvatarColor } from "@/lib/utils";
 import toast, { Toaster } from "react-hot-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+type Client = {
+  id: string; name: string; phone: string; email: string | null;
+  gender: string | null; loyaltyPoints: number; totalSpent: number;
+  visitCount: number; lastVisit: string | null;
+};
+
 type Campaign = {
-  id: string;
-  name: string;
+  id: string; name: string;
   type: "promotion" | "reminder" | "review" | "loyalty" | "festival";
-  segment: string;
-  message: string;
-  sentCount: number;
-  status: "draft" | "sent" | "scheduled";
-  date: string;
+  segment: string; message: string; sentCount: number;
+  status: "draft" | "sent" | "scheduled"; date: string;
 };
 
 type Template = {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  color: string;
-  message: string;
+  id: string; label: string; icon: React.ReactNode; color: string; message: string;
 };
 
 // ─── Templates ────────────────────────────────────────────────────────────────
@@ -37,14 +34,14 @@ const TEMPLATES: Template[] = [
     label: "Appointment Reminder",
     icon: <Bell className="w-4 h-4" />,
     color: "bg-blue-50 text-blue-600",
-    message: "Hi {{name}}! 👋 This is a friendly reminder about your appointment tomorrow at {{time}}. See you at SalonSoft Pro! ✨",
+    message: "Hi {{name}}! 👋 Friendly reminder about your appointment tomorrow at {{time}}. See you at our salon! ✨",
   },
   {
     id: "t2",
     label: "Review Request",
     icon: <Star className="w-4 h-4" />,
     color: "bg-amber-50 text-amber-600",
-    message: "Hi {{name}}! 🙏 Thank you for visiting SalonSoft Pro. We hope you loved your experience! Could you spare a moment to share your feedback? ⭐",
+    message: "Hi {{name}}! 🙏 Thank you for visiting us. We hope you loved your experience! Could you spare a moment to share your feedback? ⭐",
   },
   {
     id: "t3",
@@ -65,7 +62,7 @@ const TEMPLATES: Template[] = [
     label: "Festival Offer",
     icon: <Tag className="w-4 h-4" />,
     color: "bg-emerald-50 text-emerald-600",
-    message: "Hi {{name}}! 🎉 Celebrate the festive season with us! Enjoy special discounts on all services this week at SalonSoft Pro. Book now — limited slots! 🌸",
+    message: "Hi {{name}}! 🎉 Celebrate the festive season with us! Enjoy special discounts on all services this week. Book now — limited slots! 🌸",
   },
   {
     id: "t6",
@@ -74,24 +71,6 @@ const TEMPLATES: Template[] = [
     color: "bg-pink-50 text-pink-600",
     message: "Hi {{name}}! 🎂🎉 Wishing you a very Happy Birthday! As a special gift, enjoy a FREE hair wash on your next visit this month. You deserve it! 💛",
   },
-];
-
-const SEGMENTS = [
-  { id: "all", label: "All Clients", count: SAMPLE_CLIENTS.length },
-  { id: "active", label: "Active (visited in 30 days)", count: 8 },
-  { id: "inactive", label: "Inactive (60+ days)", count: 4 },
-  { id: "loyalty_gold", label: "Loyalty Gold (500+ pts)", count: SAMPLE_CLIENTS.filter((c) => c.loyaltyPoints >= 500).length },
-  { id: "loyalty_silver", label: "Loyalty Silver (200+ pts)", count: SAMPLE_CLIENTS.filter((c) => c.loyaltyPoints >= 200).length },
-  { id: "high_value", label: "High Value (₹10k+ spent)", count: SAMPLE_CLIENTS.filter((c) => c.totalSpent >= 10000).length },
-  { id: "female", label: "Female Clients", count: SAMPLE_CLIENTS.filter((c) => c.gender === "Female").length },
-  { id: "male", label: "Male Clients", count: SAMPLE_CLIENTS.filter((c) => c.gender === "Male").length },
-];
-
-const MOCK_CAMPAIGNS: Campaign[] = [
-  { id: "c1", name: "Diwali Special Offer", type: "festival", segment: "All Clients", message: "Hi! 🎉 Special Diwali offer...", sentCount: 12, status: "sent", date: "2026-03-28" },
-  { id: "c2", name: "April Win-Back", type: "reminder", segment: "Inactive (60+ days)", message: "Hi! We miss you...", sentCount: 4, status: "sent", date: "2026-04-01" },
-  { id: "c3", name: "Review Request — March", type: "review", segment: "Active (visited in 30 days)", message: "Hi! Thank you for visiting...", sentCount: 8, status: "sent", date: "2026-03-31" },
-  { id: "c4", name: "Birthday Wishes — April", type: "loyalty", segment: "All Clients", message: "Hi! 🎂 Happy Birthday...", sentCount: 0, status: "scheduled", date: "2026-04-10" },
 ];
 
 // ─── Campaign Type Config ─────────────────────────────────────────────────────
@@ -107,9 +86,10 @@ const campaignTypeConfig: Record<string, { label: string; color: string }> = {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function MarketingPage() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>(MOCK_CAMPAIGNS);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loadingClients, setLoadingClients] = useState(true);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [showNewModal, setShowNewModal] = useState(false);
-  const [previewModal, setPreviewModal] = useState<Campaign | null>(null);
 
   // New campaign form state
   const [campaignName, setCampaignName] = useState("");
@@ -118,8 +98,73 @@ export default function MarketingPage() {
   const [message, setMessage] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
 
-  const segmentInfo = SEGMENTS.find((s) => s.id === selectedSegment)!;
-  const segmentClients = SAMPLE_CLIENTS.slice(0, Math.min(segmentInfo.count, SAMPLE_CLIENTS.length));
+  useEffect(() => {
+    fetch("/api/clients")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data)) setClients(data);
+      })
+      .finally(() => setLoadingClients(false));
+  }, []);
+
+  const now = Date.now();
+
+  const segments = [
+    { id: "all", label: "All Clients", count: clients.length },
+    {
+      id: "active",
+      label: "Active (visited in 30 days)",
+      count: clients.filter((c) => c.lastVisit && now - new Date(c.lastVisit).getTime() < 30 * 86400000).length,
+    },
+    {
+      id: "inactive",
+      label: "Inactive (60+ days)",
+      count: clients.filter((c) => !c.lastVisit || now - new Date(c.lastVisit).getTime() > 60 * 86400000).length,
+    },
+    {
+      id: "loyalty_gold",
+      label: "Loyalty Gold (500+ pts)",
+      count: clients.filter((c) => c.loyaltyPoints >= 500).length,
+    },
+    {
+      id: "loyalty_silver",
+      label: "Loyalty Silver (200+ pts)",
+      count: clients.filter((c) => c.loyaltyPoints >= 200).length,
+    },
+    {
+      id: "high_value",
+      label: "High Value (₹10k+ spent)",
+      count: clients.filter((c) => c.totalSpent >= 10000).length,
+    },
+    {
+      id: "female",
+      label: "Female Clients",
+      count: clients.filter((c) => c.gender === "Female").length,
+    },
+    {
+      id: "male",
+      label: "Male Clients",
+      count: clients.filter((c) => c.gender === "Male").length,
+    },
+  ];
+
+  const segmentInfo = segments.find((s) => s.id === selectedSegment) ?? segments[0];
+
+  function getSegmentClients(segId: string): Client[] {
+    switch (segId) {
+      case "active": return clients.filter((c) => c.lastVisit && now - new Date(c.lastVisit).getTime() < 30 * 86400000);
+      case "inactive": return clients.filter((c) => !c.lastVisit || now - new Date(c.lastVisit).getTime() > 60 * 86400000);
+      case "loyalty_gold": return clients.filter((c) => c.loyaltyPoints >= 500);
+      case "loyalty_silver": return clients.filter((c) => c.loyaltyPoints >= 200);
+      case "high_value": return clients.filter((c) => c.totalSpent >= 10000);
+      case "female": return clients.filter((c) => c.gender === "Female");
+      case "male": return clients.filter((c) => c.gender === "Male");
+      default: return clients;
+    }
+  }
+
+  const segmentClients = getSegmentClients(selectedSegment);
+  const winBackClients = clients.filter((c) => !c.lastVisit || now - new Date(c.lastVisit).getTime() > 60 * 86400000);
 
   function applyTemplate(t: Template) {
     setSelectedTemplate(t.id);
@@ -146,7 +191,7 @@ export default function MarketingPage() {
     resetForm();
   }
 
-  function handleSendToClient(client: typeof SAMPLE_CLIENTS[number]) {
+  function handleSendToClient(client: Client) {
     const personalised = message
       .replace(/{{name}}/g, client.name.split(" ")[0])
       .replace(/{{points}}/g, String(client.loyaltyPoints))
@@ -173,9 +218,7 @@ export default function MarketingPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-            Marketing
-          </h1>
+          <h1 className="text-2xl font-bold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Marketing</h1>
           <p className="text-[#78716C] text-sm mt-0.5">WhatsApp campaigns, promotions &amp; reviews</p>
         </div>
         <button
@@ -190,10 +233,10 @@ export default function MarketingPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: "Total Clients", value: SAMPLE_CLIENTS.length, icon: Users, color: "bg-blue-50 text-blue-600" },
+          { label: "Total Clients", value: loadingClients ? "…" : clients.length, icon: Users, color: "bg-blue-50 text-blue-600" },
           { label: "Messages Sent", value: totalSent, icon: MessageCircle, color: "bg-green-50 text-green-600" },
-          { label: "Avg Rating", value: "4.7 ★", icon: Star, color: "bg-amber-50 text-amber-600" },
-          { label: "Retention Rate", value: "68%", icon: TrendingUp, color: "bg-purple-50 text-purple-600" },
+          { label: "Avg Rating", value: "—", icon: Star, color: "bg-amber-50 text-amber-600" },
+          { label: "Retention Rate", value: "—", icon: TrendingUp, color: "bg-purple-50 text-purple-600" },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-xl border border-[#E7E5E4] p-4 shadow-sm">
             <div className={`w-9 h-9 rounded-lg ${s.color} flex items-center justify-center mb-3`}>
@@ -208,9 +251,7 @@ export default function MarketingPage() {
       {/* Quick-send templates */}
       <div className="bg-white rounded-xl border border-[#E7E5E4] shadow-sm">
         <div className="p-5 border-b border-[#E7E5E4]">
-          <h2 className="font-semibold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-            Quick-Send Templates
-          </h2>
+          <h2 className="font-semibold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Quick-Send Templates</h2>
           <p className="text-[#78716C] text-sm mt-0.5">Select a template, pick clients, send instantly on WhatsApp</p>
         </div>
         <div className="p-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -220,9 +261,7 @@ export default function MarketingPage() {
               onClick={() => { applyTemplate(t); setShowNewModal(true); }}
               className="flex items-center gap-3 p-4 rounded-xl border border-[#E7E5E4] hover:border-[#D97706] hover:bg-amber-50/30 transition text-left group"
             >
-              <div className={`w-9 h-9 rounded-lg ${t.color} flex items-center justify-center shrink-0`}>
-                {t.icon}
-              </div>
+              <div className={`w-9 h-9 rounded-lg ${t.color} flex items-center justify-center shrink-0`}>{t.icon}</div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-[#1C1917]">{t.label}</p>
                 <p className="text-xs text-[#78716C] truncate mt-0.5">{t.message.slice(0, 55)}...</p>
@@ -236,89 +275,91 @@ export default function MarketingPage() {
       {/* Campaign History */}
       <div className="bg-white rounded-xl border border-[#E7E5E4] shadow-sm overflow-hidden">
         <div className="p-5 border-b border-[#E7E5E4]">
-          <h2 className="font-semibold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-            Campaign History
-          </h2>
+          <h2 className="font-semibold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Campaign History</h2>
         </div>
-        <div className="divide-y divide-[#E7E5E4]">
-          {campaigns.map((camp) => {
-            const typeConfig = campaignTypeConfig[camp.type];
-            return (
-              <div key={camp.id} className="flex items-center gap-4 p-4 hover:bg-[#FAFAF9] transition">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
-                  <Megaphone className="w-5 h-5" />
+        {campaigns.length === 0 ? (
+          <p className="text-sm text-[#78716C] text-center py-8">No campaigns sent yet. Create your first campaign above.</p>
+        ) : (
+          <div className="divide-y divide-[#E7E5E4]">
+            {campaigns.map((camp) => {
+              const typeConfig = campaignTypeConfig[camp.type];
+              return (
+                <div key={camp.id} className="flex items-center gap-4 p-4 hover:bg-[#FAFAF9] transition">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+                    <Megaphone className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-[#1C1917] text-sm">{camp.name}</p>
+                    <p className="text-[#78716C] text-xs mt-0.5">{camp.segment} · {camp.date}</p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeConfig?.color ?? "bg-gray-100 text-gray-600"}`}>{typeConfig?.label}</span>
+                    {camp.status === "sent" ? (
+                      <div className="flex items-center gap-1 text-emerald-600 text-xs font-medium">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        {camp.sentCount} sent
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 text-[#D97706] text-xs font-medium">
+                        <Clock className="w-3.5 h-3.5" />
+                        Scheduled
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-[#1C1917] text-sm">{camp.name}</p>
-                  <p className="text-[#78716C] text-xs mt-0.5">{camp.segment} · {camp.date}</p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeConfig?.color ?? "bg-gray-100 text-gray-600"}`}>
-                    {typeConfig?.label}
-                  </span>
-                  {camp.status === "sent" ? (
-                    <div className="flex items-center gap-1 text-emerald-600 text-xs font-medium">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      {camp.sentCount} sent
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 text-[#D97706] text-xs font-medium">
-                      <Clock className="w-3.5 h-3.5" />
-                      Scheduled
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Inactive clients — win-back section */}
       <div className="bg-white rounded-xl border border-[#E7E5E4] shadow-sm overflow-hidden">
         <div className="p-5 border-b border-[#E7E5E4] flex items-center justify-between">
           <div>
-            <h2 className="font-semibold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              Win-Back Opportunities
-            </h2>
+            <h2 className="font-semibold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Win-Back Opportunities</h2>
             <p className="text-[#78716C] text-sm mt-0.5">Clients who haven&apos;t visited in 60+ days</p>
           </div>
         </div>
-        <div className="divide-y divide-[#E7E5E4]">
-          {SAMPLE_CLIENTS.filter((c) => {
-            if (!c.lastVisit) return true;
-            const days = Math.floor((Date.now() - c.lastVisit.getTime()) / (1000 * 60 * 60 * 24));
-            return days > 60;
-          }).map((client) => {
-            const days = client.lastVisit
-              ? Math.floor((Date.now() - client.lastVisit.getTime()) / (1000 * 60 * 60 * 24))
-              : 999;
-            const winBackMsg = `Hi ${client.name.split(" ")[0]}! 💔 We miss you at SalonSoft Pro! It's been a while since your last visit. Come back this week and enjoy 20% off any service. We'd love to see you again! 💛`;
-            const waUrl = buildWhatsAppUrl(client.phone, winBackMsg);
-            return (
-              <div key={client.id} className="flex items-center gap-4 p-4 hover:bg-[#FAFAF9] transition">
-                <div className={`w-10 h-10 rounded-full ${getAvatarColor(client.name)} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
-                  {getInitials(client.name)}
+        {loadingClients ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-[#D97706]" />
+          </div>
+        ) : winBackClients.length === 0 ? (
+          <p className="text-sm text-[#78716C] text-center py-8">No inactive clients — great retention!</p>
+        ) : (
+          <div className="divide-y divide-[#E7E5E4]">
+            {winBackClients.map((client) => {
+              const days = client.lastVisit
+                ? Math.floor((now - new Date(client.lastVisit).getTime()) / 86400000)
+                : 999;
+              const winBackMsg = `Hi ${client.name.split(" ")[0]}! 💔 We miss you at our salon! It's been a while since your last visit. Come back this week and enjoy 20% off any service. We'd love to see you again! 💛`;
+              const waUrl = buildWhatsAppUrl(client.phone, winBackMsg);
+              return (
+                <div key={client.id} className="flex items-center gap-4 p-4 hover:bg-[#FAFAF9] transition">
+                  <div className={`w-10 h-10 rounded-full ${getAvatarColor(client.name)} flex items-center justify-center text-white text-sm font-bold shrink-0`}>
+                    {getInitials(client.name)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-[#1C1917] text-sm">{client.name}</p>
+                    <p className="text-[#78716C] text-xs mt-0.5">
+                      Last visit: {client.lastVisit ? new Date(client.lastVisit).toLocaleDateString("en-IN") : "Never"} · {days === 999 ? "Never visited" : `${days} days ago`}
+                    </p>
+                  </div>
+                  <a
+                    href={waUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-medium transition shrink-0"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5" />
+                    Send WA
+                  </a>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-[#1C1917] text-sm">{client.name}</p>
-                  <p className="text-[#78716C] text-xs mt-0.5">
-                    Last visit: {client.lastVisit ? client.lastVisit.toLocaleDateString("en-IN") : "Never"} · {days} days ago
-                  </p>
-                </div>
-                <a
-                  href={waUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-medium transition shrink-0"
-                >
-                  <MessageCircle className="w-3.5 h-3.5" />
-                  Send WA
-                </a>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ─── New Campaign Modal ─── */}
@@ -327,9 +368,7 @@ export default function MarketingPage() {
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowNewModal(false)} />
           <div className="relative bg-white w-full sm:max-w-2xl rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b border-[#E7E5E4] sticky top-0 bg-white rounded-t-2xl z-10">
-              <h2 className="font-bold text-[#1C1917] text-lg" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                New WhatsApp Campaign
-              </h2>
+              <h2 className="font-bold text-[#1C1917] text-lg" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>New WhatsApp Campaign</h2>
               <button onClick={() => setShowNewModal(false)} className="p-2 hover:bg-[#F5F5F4] rounded-lg transition">
                 <X className="w-5 h-5 text-[#78716C]" />
               </button>
@@ -369,7 +408,7 @@ export default function MarketingPage() {
               <div>
                 <label className="block text-sm font-medium text-[#1C1917] mb-2">Target Segment</label>
                 <div className="space-y-2">
-                  {SEGMENTS.map((seg) => (
+                  {segments.map((seg) => (
                     <label key={seg.id} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition ${selectedSegment === seg.id ? "border-[#D97706] bg-amber-50/40" : "border-[#E7E5E4] hover:border-[#D97706]"}`}>
                       <div className="flex items-center gap-3">
                         <input
@@ -421,8 +460,8 @@ export default function MarketingPage() {
                 <p className="text-xs text-[#78716C] mt-1">{message.length} characters</p>
               </div>
 
-              {/* Preview — first few clients */}
-              {message && (
+              {/* Preview */}
+              {message && segmentClients.length > 0 && (
                 <div>
                   <p className="text-sm font-medium text-[#1C1917] mb-3">Preview — Send Individually</p>
                   <div className="border border-[#E7E5E4] rounded-xl overflow-hidden divide-y divide-[#E7E5E4] max-h-56 overflow-y-auto">

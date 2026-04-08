@@ -1,71 +1,28 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
-  BarChart,
-  Bar,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-  ComposedChart,
+  BarChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Legend, ComposedChart,
 } from "recharts";
 import {
-  Banknote,
-  Smartphone,
-  CreditCard,
-  Clock,
-  ChevronDown,
-  ChevronUp,
-  MessageCircle,
-  CheckCircle,
-  AlertTriangle,
-  TrendingUp,
-  Calendar,
+  Banknote, Smartphone, CreditCard, Clock, ChevronDown, ChevronUp,
+  MessageCircle, CheckCircle, AlertTriangle, Calendar, Loader2,
 } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
-import { formatINR, formatDate, buildWhatsAppUrl } from "@/lib/utils";
-import { SAMPLE_INVOICES } from "@/data/sampleData";
+import { formatINR, buildWhatsAppUrl } from "@/lib/utils";
 
-// ─── Data ─────────────────────────────────────────────────────────────────────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-const TODAY = new Date("2026-04-07");
-
-const WEEKLY_DATA = [
-  { day: "Mon", inflows: 14200, outflows: 8500, balance: 18700 },
-  { day: "Tue", inflows: 18900, outflows: 6200, balance: 31400 },
-  { day: "Wed", inflows: 22400, outflows: 12000, balance: 41800 },
-  { day: "Thu", inflows: 16750, outflows: 5800, balance: 52750 },
-  { day: "Fri", inflows: 28500, outflows: 9200, balance: 72050 },
-  { day: "Sat", inflows: 35200, outflows: 4500, balance: 102750 },
-  { day: "Sun", inflows: 18450, outflows: 1200, balance: 120000 },
-];
-
-const HISTORICAL_DATA = [
-  { date: "28 Mar", opening: 8200, inflows: 15400, outflows: 9200, closing: 14400 },
-  { date: "29 Mar", opening: 14400, inflows: 22100, outflows: 11500, closing: 25000 },
-  { date: "30 Mar", opening: 25000, inflows: 18800, outflows: 8700, closing: 35100 },
-  { date: "31 Mar", opening: 35100, inflows: 31500, outflows: 14200, closing: 52400 },
-  { date: "01 Apr", opening: 52400, inflows: 19200, outflows: 7800, closing: 63800 },
-  { date: "02 Apr", opening: 63800, inflows: 24500, outflows: 10100, closing: 78200 },
-  { date: "03 Apr", opening: 78200, inflows: 28900, outflows: 12400, closing: 94700 },
-  { date: "04 Apr", opening: 94700, inflows: 16300, outflows: 5900, closing: 105100 },
-  { date: "05 Apr", opening: 105100, inflows: 21800, outflows: 9300, closing: 117600 },
-  { date: "06 Apr", opening: 117600, inflows: 18450, outflows: 1200, closing: 134850 },
-];
-
-const NEXT_7_DAYS = [
-  { label: "Today", date: "07 Apr (Mon)", inflow: 18450, outflow: 1200 },
-  { label: "Tomorrow", date: "08 Apr (Tue)", inflow: 21000, outflow: 65000 },
-  { label: "", date: "09 Apr (Wed)", inflow: 19500, outflow: 8500 },
-  { label: "", date: "10 Apr (Thu)", inflow: 22000, outflow: 5000 },
-  { label: "", date: "11 Apr (Fri)", inflow: 28000, outflow: 3500 },
-  { label: "", date: "12 Apr (Sat)", inflow: 35000, outflow: 2000 },
-  { label: "", date: "13 Apr (Sun)", inflow: 18000, outflow: 1000 },
-];
+type TodayFlow = {
+  cash: number; upi: number; card: number; split: number; other: number;
+  totalInflows: number; totalOutflows: number;
+};
+type HistoryRow = { date: string; day: string; opening: number; inflows: number; outflows: number; closing: number };
+type PendingInv = {
+  id: string; invoiceNumber: string; clientName: string; clientPhone: string;
+  totalAmount: number; amountPaid: number; dueDate: string | null; status: string;
+};
 
 // ─── Custom Tooltip ───────────────────────────────────────────────────────────
 
@@ -88,49 +45,56 @@ function ChartTooltip({ active, payload, label }: any) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CashFlowPage() {
-  const [openingBalance, setOpeningBalance] = useState(12500);
-  const [openingInput, setOpeningInput] = useState("12500");
+  const [openingBalance, setOpeningBalance] = useState(0);
+  const [openingInput, setOpeningInput] = useState("0");
   const [historyExpanded, setHistoryExpanded] = useState(false);
+  const [todayFlow, setTodayFlow] = useState<TodayFlow | null>(null);
+  const [historyData, setHistoryData] = useState<HistoryRow[]>([]);
+  const [pendingInvoices, setPendingInvoices] = useState<PendingInv[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Today's values
-  const cashInflow = 4200;
-  const upiInflow = 11850;
-  const cardInflow = 2400;
-  const totalInflows = cashInflow + upiInflow + cardInflow;
-  const totalOutflows = 1200;
+  const today = new Date();
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [flowRes, histRes, invRes] = await Promise.all([
+        fetch("/api/cashflow/today").then((r) => r.json()),
+        fetch("/api/cashflow/history?days=7").then((r) => r.json()),
+        fetch("/api/invoices?status=PENDING").then((r) => r.json()),
+      ]);
+
+      if (flowRes && !flowRes.error) setTodayFlow(flowRes);
+      if (Array.isArray(histRes)) setHistoryData(histRes);
+      if (Array.isArray(invRes)) {
+        const pending = invRes.filter((inv: any) =>
+          ["PENDING", "OVERDUE", "PARTIAL"].includes(inv.status)
+        );
+        setPendingInvoices(pending);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const cashInflow = todayFlow?.cash ?? 0;
+  const upiInflow = todayFlow?.upi ?? 0;
+  const cardInflow = todayFlow?.card ?? 0;
+  const totalInflows = todayFlow?.totalInflows ?? 0;
+  const totalOutflows = todayFlow?.totalOutflows ?? 0;
   const closingBalance = openingBalance + totalInflows - totalOutflows;
   const expectedClosing = openingBalance + totalInflows - totalOutflows;
   const difference = closingBalance - expectedClosing;
 
-  // Pending / overdue invoices
-  const pendingInvoices = useMemo(() => {
-    return SAMPLE_INVOICES
-      .filter((inv) => inv.status === "PENDING" || inv.status === "OVERDUE" || inv.status === "PARTIAL")
-      .map((inv) => {
-        const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
-        const daysOverdue = dueDate
-          ? Math.max(0, Math.floor((TODAY.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24)))
-          : 0;
-        return { ...inv, daysOverdue };
-      })
-      .sort((a, b) => b.daysOverdue - a.daysOverdue);
-  }, []);
-
-  const handleCloseDay = () => {
-    toast.success("Day closed and saved successfully!", {
-      duration: 3000,
-      style: {
-        background: "#1C1917",
-        color: "#fff",
-        borderRadius: "10px",
-        fontSize: "14px",
-      },
-      iconTheme: {
-        primary: "#D97706",
-        secondary: "#fff",
-      },
-    });
-  };
+  const pendingWithOverdue = pendingInvoices.map((inv) => {
+    const dueDate = inv.dueDate ? new Date(inv.dueDate) : null;
+    const daysOverdue = dueDate ? Math.max(0, Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))) : 0;
+    return { ...inv, daysOverdue };
+  }).sort((a, b) => b.daysOverdue - a.daysOverdue);
 
   const paymentMethods = [
     { label: "Cash", icon: <Banknote className="w-5 h-5" />, amount: cashInflow, color: "text-[#059669]", bg: "bg-emerald-100" },
@@ -145,6 +109,29 @@ export default function CashFlowPage() {
     },
   ];
 
+  const weeklyChartData = historyData.map((row) => ({
+    day: row.day,
+    inflows: row.inflows,
+    outflows: row.outflows,
+    balance: row.closing,
+  }));
+
+  const handleCloseDay = () => {
+    toast.success("Day closed and saved successfully!", {
+      duration: 3000,
+      style: { background: "#1C1917", color: "#fff", borderRadius: "10px", fontSize: "14px" },
+      iconTheme: { primary: "#D97706", secondary: "#fff" },
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-[#D97706]" />
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <Toaster position="top-right" />
@@ -152,7 +139,7 @@ export default function CashFlowPage() {
       {/* ─── Header ─── */}
       <div>
         <h1 className="text-2xl font-bold text-stone-900">Cash Flow</h1>
-        <p className="text-sm text-stone-500 mt-0.5">Daily register & cash movement</p>
+        <p className="text-sm text-stone-500 mt-0.5">Daily register &amp; cash movement</p>
       </div>
 
       {/* ─── Today's Register Card ─── */}
@@ -164,14 +151,14 @@ export default function CashFlowPage() {
               Today&apos;s Register
             </h2>
             <p className="text-sm text-stone-500 mt-0.5">
-              {TODAY.toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
+              {today.toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}
             </p>
           </div>
           <button
             onClick={handleCloseDay}
             className="bg-[#D97706] hover:bg-amber-600 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors shadow-sm"
           >
-            Close Day & Save
+            Close Day &amp; Save
           </button>
         </div>
 
@@ -222,8 +209,8 @@ export default function CashFlowPage() {
               <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-2">Outflows Today</p>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-stone-600">- Petty cash expenses</span>
-                  <span className="font-medium text-stone-800">{formatINR(1200)}</span>
+                  <span className="text-stone-600">- Expenses today</span>
+                  <span className="font-medium text-stone-800">{formatINR(totalOutflows)}</span>
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-stone-100">
                   <span className="text-sm font-semibold text-stone-700">Total Outflows</span>
@@ -237,9 +224,7 @@ export default function CashFlowPage() {
           <div className="flex flex-col justify-center bg-stone-50 rounded-xl p-6 space-y-4">
             <div className="text-center">
               <p className="text-xs font-bold text-stone-400 uppercase tracking-wider mb-1">Closing Balance</p>
-              <p className="text-5xl font-extrabold text-stone-900 tracking-tight">
-                {formatINR(closingBalance)}
-              </p>
+              <p className="text-5xl font-extrabold text-stone-900 tracking-tight">{formatINR(closingBalance)}</p>
             </div>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between text-stone-500">
@@ -248,17 +233,9 @@ export default function CashFlowPage() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-stone-500">Difference</span>
-                <span
-                  className={`flex items-center gap-1.5 font-bold ${
-                    difference === 0 ? "text-[#059669]" : "text-[#DC2626]"
-                  }`}
-                >
+                <span className={`flex items-center gap-1.5 font-bold ${difference === 0 ? "text-[#059669]" : "text-[#DC2626]"}`}>
                   {formatINR(difference)}
-                  {difference === 0 ? (
-                    <CheckCircle className="w-4 h-4" />
-                  ) : (
-                    <AlertTriangle className="w-4 h-4" />
-                  )}
+                  {difference === 0 ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
                 </span>
               </div>
             </div>
@@ -278,10 +255,7 @@ export default function CashFlowPage() {
               </div>
               <p className={`text-2xl font-bold mb-3 ${color}`}>{formatINR(amount)}</p>
               <div className="h-1.5 bg-stone-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[#D97706] rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, pct)}%` }}
-                />
+                <div className="h-full bg-[#D97706] rounded-full transition-all duration-500" style={{ width: `${Math.min(100, pct)}%` }} />
               </div>
               <p className="text-xs text-stone-400 mt-1.5">{pct.toFixed(1)}% of total inflows</p>
             </div>
@@ -291,51 +265,37 @@ export default function CashFlowPage() {
 
       {/* ─── Weekly Chart ─── */}
       <div className="bg-white rounded-xl border border-[#E7E5E4] shadow-sm p-5">
-        <h2 className="font-semibold text-stone-800 mb-4">This Week — Daily Cash Flow</h2>
-        <ResponsiveContainer width="100%" height={250}>
-          <ComposedChart data={WEEKLY_DATA} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#F5F5F4" />
-            <XAxis
-              dataKey="day"
-              tick={{ fontSize: 11, fill: "#78716C" }}
-              tickLine={false}
-              axisLine={{ stroke: "#E7E5E4" }}
-            />
-            <YAxis
-              tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
-              tick={{ fontSize: 11, fill: "#78716C" }}
-              tickLine={false}
-              axisLine={false}
-            />
-            <Tooltip content={<ChartTooltip />} />
-            <Legend
-              wrapperStyle={{ fontSize: "12px", paddingTop: "12px" }}
-              formatter={(value) => <span style={{ color: "#78716C" }}>{value}</span>}
-            />
-            <Bar dataKey="inflows" name="Inflows" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={40} />
-            <Bar dataKey="outflows" name="Outflows" fill="#DC2626" radius={[4, 4, 0, 0]} maxBarSize={40} />
-            <Line
-              type="monotone"
-              dataKey="balance"
-              name="Cumulative Balance"
-              stroke="#D97706"
-              strokeWidth={2.5}
-              dot={{ fill: "#D97706", r: 3 }}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
+        <h2 className="font-semibold text-stone-800 mb-4">Last 7 Days — Daily Cash Flow</h2>
+        {weeklyChartData.every((d) => d.inflows === 0 && d.outflows === 0) ? (
+          <p className="text-sm text-stone-500 text-center py-8">No cash flow data for the last 7 days</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={250}>
+            <ComposedChart data={weeklyChartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F5F5F4" />
+              <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#78716C" }} tickLine={false} axisLine={{ stroke: "#E7E5E4" }} />
+              <YAxis tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11, fill: "#78716C" }} tickLine={false} axisLine={false} />
+              <Tooltip content={<ChartTooltip />} />
+              <Legend wrapperStyle={{ fontSize: "12px", paddingTop: "12px" }} formatter={(value) => <span style={{ color: "#78716C" }}>{value}</span>} />
+              <Bar dataKey="inflows" name="Inflows" fill="#059669" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              <Bar dataKey="outflows" name="Outflows" fill="#DC2626" radius={[4, 4, 0, 0]} maxBarSize={40} />
+              <Line type="monotone" dataKey="balance" name="Cumulative Balance" stroke="#D97706" strokeWidth={2.5} dot={{ fill: "#D97706", r: 3 }} />
+            </ComposedChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
-      {/* ─── Pending Collections + Next 7 Days ─── */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        {/* Pending Collections */}
-        <div className="bg-white rounded-xl border border-[#E7E5E4] shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between">
-            <h2 className="font-semibold text-stone-800">Pending Collections</h2>
-            <span className="bg-amber-100 text-amber-700 text-xs font-semibold px-2 py-0.5 rounded-full">
-              {pendingInvoices.length} outstanding
-            </span>
-          </div>
+      {/* ─── Pending Collections ─── */}
+      <div className="bg-white rounded-xl border border-[#E7E5E4] shadow-sm overflow-hidden">
+        <div className="px-5 py-4 border-b border-stone-100 flex items-center justify-between">
+          <h2 className="font-semibold text-stone-800">Pending Collections</h2>
+          <span className="bg-amber-100 text-amber-700 text-xs font-semibold px-2 py-0.5 rounded-full">
+            {pendingWithOverdue.length} outstanding
+          </span>
+        </div>
+
+        {pendingWithOverdue.length === 0 ? (
+          <p className="text-sm text-stone-500 text-center py-8">No pending collections</p>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -348,31 +308,22 @@ export default function CashFlowPage() {
                 </tr>
               </thead>
               <tbody>
-                {pendingInvoices.map((inv) => {
+                {pendingWithOverdue.map((inv) => {
                   const isHighlighted = inv.daysOverdue > 7;
                   const due = inv.totalAmount - inv.amountPaid;
-                  const waMsg = `Hi ${inv.clientName}! 🙏 This is a gentle reminder about your outstanding amount of ${formatINR(due)} for Invoice #${inv.invoiceNumber} at SalonSoft Pro. Kindly arrange the payment at your earliest convenience. Thank you!`;
+                  const waMsg = `Hi ${inv.clientName}! 🙏 Gentle reminder about your outstanding amount of ${formatINR(due)} for Invoice #${inv.invoiceNumber}. Please arrange payment at your earliest convenience. Thank you!`;
                   const waUrl = buildWhatsAppUrl(inv.clientPhone, waMsg);
                   return (
-                    <tr
-                      key={inv.id}
-                      className={`border-b border-stone-100 transition-colors ${
-                        isHighlighted ? "bg-red-50 hover:bg-red-100/60" : "hover:bg-stone-50"
-                      }`}
-                    >
+                    <tr key={inv.id} className={`border-b border-stone-100 transition-colors ${isHighlighted ? "bg-red-50 hover:bg-red-100/60" : "hover:bg-stone-50"}`}>
                       <td className="pl-4 py-3 text-sm">
                         <p className="font-medium text-stone-800">{inv.clientName}</p>
                         <p className="text-xs text-stone-400">{inv.clientPhone}</p>
                       </td>
                       <td className="py-3 text-xs text-stone-500 font-mono">{inv.invoiceNumber}</td>
-                      <td className="py-3 text-sm text-right font-semibold text-stone-800">
-                        {formatINR(due)}
-                      </td>
+                      <td className="py-3 text-sm text-right font-semibold text-stone-800">{formatINR(due)}</td>
                       <td className="py-3 text-sm text-right">
                         {inv.daysOverdue > 0 ? (
-                          <span className={`font-semibold ${isHighlighted ? "text-[#DC2626]" : "text-[#D97706]"}`}>
-                            {inv.daysOverdue}d
-                          </span>
+                          <span className={`font-semibold ${isHighlighted ? "text-[#DC2626]" : "text-[#D97706]"}`}>{inv.daysOverdue}d</span>
                         ) : (
                           <span className="text-stone-400 text-xs">Due soon</span>
                         )}
@@ -394,47 +345,7 @@ export default function CashFlowPage() {
               </tbody>
             </table>
           </div>
-        </div>
-
-        {/* Next 7 Days Expected Cash */}
-        <div className="bg-white rounded-xl border border-[#E7E5E4] shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-stone-100 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-[#D97706]" />
-            <h2 className="font-semibold text-stone-800">Expected Cash — Next 7 Days</h2>
-          </div>
-          <div className="p-5 space-y-3">
-            {NEXT_7_DAYS.map(({ label, date, inflow, outflow }) => {
-              const net = inflow - outflow;
-              const isNeg = net < 0;
-              return (
-                <div key={date} className="flex items-center gap-3">
-                  <div className="w-28 shrink-0">
-                    <p className="text-xs font-semibold text-stone-700">{date}</p>
-                    {label && (
-                      <p className="text-xs text-stone-400">{label}</p>
-                    )}
-                  </div>
-                  <div className="flex-1 grid grid-cols-3 gap-2 text-xs text-right">
-                    <div>
-                      <p className="text-stone-400 mb-0.5">In</p>
-                      <p className="font-medium text-[#059669]">{formatINR(inflow)}</p>
-                    </div>
-                    <div>
-                      <p className="text-stone-400 mb-0.5">Out</p>
-                      <p className="font-medium text-[#DC2626]">{formatINR(outflow)}</p>
-                    </div>
-                    <div>
-                      <p className="text-stone-400 mb-0.5">Net</p>
-                      <p className={`font-bold ${isNeg ? "text-[#DC2626]" : "text-[#059669]"}`}>
-                        {isNeg ? "-" : "+"}{formatINR(Math.abs(net))}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        )}
       </div>
 
       {/* ─── Historical Cash Flow (collapsible) ─── */}
@@ -445,14 +356,16 @@ export default function CashFlowPage() {
         >
           <h2 className="font-semibold text-stone-800">Historical Cash Flow</h2>
           <div className="flex items-center gap-2 text-stone-400">
-            <span className="text-sm">Last 10 days</span>
+            <span className="text-sm">Last 7 days</span>
             {historyExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </div>
         </button>
 
         {historyExpanded && (
-          <>
-            <div className="border-t border-stone-100 overflow-x-auto">
+          <div className="border-t border-stone-100 overflow-x-auto">
+            {historyData.length === 0 ? (
+              <p className="text-sm text-stone-500 text-center py-6">No historical data available</p>
+            ) : (
               <table className="w-full">
                 <thead>
                   <tr className="bg-stone-50 border-b border-stone-100">
@@ -464,28 +377,19 @@ export default function CashFlowPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {HISTORICAL_DATA.map((row) => {
-                    const netFlow = row.inflows - row.outflows;
-                    return (
-                      <tr key={row.date} className="border-b border-stone-100 hover:bg-stone-50 transition-colors">
-                        <td className="pl-5 py-3 text-sm font-medium text-stone-700">{row.date}</td>
-                        <td className="pr-5 py-3 text-sm text-right text-stone-500">{formatINR(row.opening)}</td>
-                        <td className="pr-5 py-3 text-sm text-right font-medium text-[#059669]">{formatINR(row.inflows)}</td>
-                        <td className="pr-5 py-3 text-sm text-right font-medium text-[#DC2626]">{formatINR(row.outflows)}</td>
-                        <td className="pr-5 py-3 text-sm text-right font-bold text-stone-900">{formatINR(row.closing)}</td>
-                      </tr>
-                    );
-                  })}
+                  {historyData.map((row) => (
+                    <tr key={row.date} className="border-b border-stone-100 hover:bg-stone-50 transition-colors">
+                      <td className="pl-5 py-3 text-sm font-medium text-stone-700">{row.date}</td>
+                      <td className="pr-5 py-3 text-sm text-right text-stone-500">{formatINR(row.opening)}</td>
+                      <td className="pr-5 py-3 text-sm text-right font-medium text-[#059669]">{formatINR(row.inflows)}</td>
+                      <td className="pr-5 py-3 text-sm text-right font-medium text-[#DC2626]">{formatINR(row.outflows)}</td>
+                      <td className="pr-5 py-3 text-sm text-right font-bold text-stone-900">{formatINR(row.closing)}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
-            </div>
-            <div className="px-5 py-3 border-t border-stone-100 flex items-center justify-between">
-              <p className="text-xs text-stone-400">Showing last 10 days</p>
-              <button className="text-sm font-medium text-[#D97706] hover:text-amber-600 transition-colors">
-                View More →
-              </button>
-            </div>
-          </>
+            )}
+          </div>
         )}
       </div>
     </div>

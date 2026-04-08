@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { UserCheck, Plus, Phone, Star, X, User, Briefcase, Percent, Mail, Loader2 } from "lucide-react";
-import { formatINR, getInitials, getAvatarColor } from "@/lib/utils";
+import { getInitials, getAvatarColor } from "@/lib/utils";
 import toast, { Toaster } from "react-hot-toast";
 
 type StaffMember = {
@@ -38,17 +38,6 @@ type StaffForm = {
 
 const DEFAULT_FORM: StaffForm = { name: "", phone: "", role: "STAFF", commissionRate: "20", branchId: "b1" };
 
-// Mock performance data keyed by staff name (no API for this yet)
-const performanceMap: Record<string, { revenue: number; appointments: number }> = {
-  "Rahul Verma": { revenue: 85000, appointments: 42 },
-  "Priya Sharma": { revenue: 72000, appointments: 38 },
-  "Amit Patel": { revenue: 68000, appointments: 35 },
-  "Sunita Rao": { revenue: 55000, appointments: 29 },
-  "Kiran Mehta": { revenue: 48000, appointments: 25 },
-  "Divya Nair": { revenue: 41000, appointments: 22 },
-  "Suresh Kumar": { revenue: 0, appointments: 0 },
-  "Anita Joshi": { revenue: 63000, appointments: 33 },
-};
 
 export default function StaffPage() {
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -210,59 +199,41 @@ export default function StaffPage() {
 
       {/* Staff cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {staff.map((member) => {
-          const perf = performanceMap[member.name] ?? { revenue: 0, appointments: 0 };
-          const commission = Math.round(perf.revenue * member.commissionRate / 100);
-          return (
-            <div key={member.id} className="bg-white rounded-xl border border-[#E7E5E4] shadow-sm p-5 hover:border-[#D97706] transition">
-              <div className="flex flex-col items-center text-center">
-                <div className={`w-16 h-16 rounded-full ${getAvatarColor(member.name)} flex items-center justify-center text-white font-bold text-lg mb-3`}>
-                  {getInitials(member.name)}
-                </div>
-                <h3 className="font-semibold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                  {member.name}
-                </h3>
-                <span className={`mt-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${roleBadge[member.role] ?? "bg-gray-100 text-gray-600"}`}>
-                  {roleLabel[member.role] ?? member.role}
-                </span>
+        {staff.map((member) => (
+          <div key={member.id} className="bg-white rounded-xl border border-[#E7E5E4] shadow-sm p-5 hover:border-[#D97706] transition">
+            <div className="flex flex-col items-center text-center">
+              <div className={`w-16 h-16 rounded-full ${getAvatarColor(member.name)} flex items-center justify-center text-white font-bold text-lg mb-3`}>
+                {getInitials(member.name)}
               </div>
+              <h3 className="font-semibold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                {member.name}
+              </h3>
+              <span className={`mt-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${roleBadge[member.role] ?? "bg-gray-100 text-gray-600"}`}>
+                {roleLabel[member.role] ?? member.role}
+              </span>
+            </div>
 
-              <div className="mt-4 space-y-2 pt-4 border-t border-[#E7E5E4]">
+            <div className="mt-4 space-y-2 pt-4 border-t border-[#E7E5E4]">
+              <div className="flex items-center gap-2 text-sm text-[#78716C]">
+                <Phone className="w-3.5 h-3.5" />
+                <span>{member.phone}</span>
+              </div>
+              {member.commissionRate > 0 && (
                 <div className="flex items-center gap-2 text-sm text-[#78716C]">
-                  <Phone className="w-3.5 h-3.5" />
-                  <span>{member.phone}</span>
-                </div>
-                {member.commissionRate > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-[#78716C]">
-                    <Percent className="w-3.5 h-3.5" />
-                    <span>{member.commissionRate}% commission</span>
-                  </div>
-                )}
-              </div>
-
-              {/* This month performance */}
-              {perf.revenue > 0 && (
-                <div className="mt-3 pt-3 border-t border-[#E7E5E4] grid grid-cols-2 gap-2">
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-[#1C1917]">{formatINR(perf.revenue)}</p>
-                    <p className="text-xs text-[#78716C]">Revenue</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-sm font-semibold text-[#D97706]">{formatINR(commission)}</p>
-                    <p className="text-xs text-[#78716C]">Commission</p>
-                  </div>
+                  <Percent className="w-3.5 h-3.5" />
+                  <span>{member.commissionRate}% commission</span>
                 </div>
               )}
-
-              <button
-                onClick={() => openEdit(member)}
-                className="mt-3 w-full text-xs text-[#D97706] font-medium hover:underline"
-              >
-                Edit Profile
-              </button>
             </div>
-          );
-        })}
+
+            <button
+              onClick={() => openEdit(member)}
+              className="mt-3 w-full text-xs text-[#D97706] font-medium hover:underline"
+            >
+              Edit Profile
+            </button>
+          </div>
+        ))}
       </div>
 
       {/* ─── Add / Edit Modal ─── */}

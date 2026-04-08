@@ -30,14 +30,12 @@ import { QRCodeSVG } from "qrcode.react";
 import toast from "react-hot-toast";
 import { formatINR } from "@/lib/utils";
 import { useFinanceStore, CartItem } from "@/store/useFinanceStore";
-import {
-  SAMPLE_SERVICES,
-  SERVICE_CATEGORIES,
-  SAMPLE_STAFF,
-} from "@/data/sampleData";
+import { buildWhatsAppUrl, buildInvoiceWhatsAppMessage } from "@/lib/utils";
 
 type LiveClient = { id: string; name: string; phone: string; loyaltyPoints: number };
-import { buildWhatsAppUrl, buildInvoiceWhatsAppMessage } from "@/lib/utils";
+type ServiceCategory = { id: string; name: string; order: number };
+type Service = { id: string; name: string; categoryId: string; duration: number; price: number; gstRate: number };
+type StaffListItem = { id: string; name: string };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type PaymentMethod = "CASH" | "UPI" | "CARD" | "LINK" | "BANK" | "SPLIT";
@@ -118,6 +116,17 @@ export default function BillingPage() {
   const [selectedClient, setSelectedClient] = useState<LiveClient | null>(null);
   const clientRef = useRef<HTMLDivElement>(null);
 
+  // ─── Services / Categories / Staff ────────────────────────────────────────
+  const [services, setServices] = useState<Service[]>([]);
+  const [serviceCategories, setServiceCategories] = useState<ServiceCategory[]>([]);
+  const [staffList, setStaffList] = useState<StaffListItem[]>([]);
+
+  useEffect(() => {
+    fetch("/api/services").then((r) => r.json()).then((d) => setServices(Array.isArray(d) ? d : []));
+    fetch("/api/services/categories").then((r) => r.json()).then((d) => setServiceCategories(Array.isArray(d) ? d : []));
+    fetch("/api/staff").then((r) => r.json()).then((d) => setStaffList(Array.isArray(d) ? d : []));
+  }, []);
+
   // Close client dropdown on outside click
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -144,9 +153,9 @@ export default function BillingPage() {
 
   // ─── Filtered services ────────────────────────────────────────────────────
   const filteredServices = useMemo(() => {
-    if (activeCategoryId === "all") return SAMPLE_SERVICES;
-    return SAMPLE_SERVICES.filter((s) => s.categoryId === activeCategoryId);
-  }, [activeCategoryId]);
+    if (activeCategoryId === "all") return services;
+    return services.filter((s) => s.categoryId === activeCategoryId);
+  }, [activeCategoryId, services]);
 
   // ─── Cart calculations ────────────────────────────────────────────────────
   const totals = useMemo(() => {
@@ -186,7 +195,7 @@ export default function BillingPage() {
   }, [items, overallDiscount, overallDiscountType, tips, useLoyalty, selectedClient]);
 
   // ─── Add service to cart ──────────────────────────────────────────────────
-  function addService(service: (typeof SAMPLE_SERVICES)[0]) {
+  function addService(service: Service) {
     const existing = items.find((i) => i.serviceId === service.id);
     if (existing) {
       updateCartItem(existing.id, { quantity: existing.quantity + 1 });
@@ -442,7 +451,7 @@ export default function BillingPage() {
                   onChange={(e) => updateActiveBill({ staffId: e.target.value || undefined })}
                 >
                   <option value="">Select staff…</option>
-                  {SAMPLE_STAFF.map((s) => (
+                  {staffList.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.name}
                     </option>
@@ -495,7 +504,7 @@ export default function BillingPage() {
                   >
                     All
                   </button>
-                  {SERVICE_CATEGORIES.map((cat) => (
+                  {serviceCategories.map((cat) => (
                     <button
                       key={cat.id}
                       onClick={() => setActiveCategoryId(cat.id)}
@@ -656,7 +665,7 @@ export default function BillingPage() {
                             }
                           >
                             <option value="">—</option>
-                            {SAMPLE_STAFF.map((s) => (
+                            {staffList.map((s) => (
                               <option key={s.id} value={s.id}>
                                 {s.name.split(" ")[0]}
                               </option>
