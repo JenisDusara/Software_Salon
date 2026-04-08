@@ -31,11 +31,12 @@ import toast from "react-hot-toast";
 import { formatINR } from "@/lib/utils";
 import { useFinanceStore, CartItem } from "@/store/useFinanceStore";
 import {
-  SAMPLE_CLIENTS,
   SAMPLE_SERVICES,
   SERVICE_CATEGORIES,
   SAMPLE_STAFF,
 } from "@/data/sampleData";
+
+type LiveClient = { id: string; name: string; phone: string; loyaltyPoints: number };
 import { buildWhatsAppUrl, buildInvoiceWhatsAppMessage } from "@/lib/utils";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -113,6 +114,8 @@ export default function BillingPage() {
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [isWalkIn, setIsWalkIn] = useState(false);
   const [walkInName, setWalkInName] = useState("");
+  const [liveClients, setLiveClients] = useState<LiveClient[]>([]);
+  const [selectedClient, setSelectedClient] = useState<LiveClient | null>(null);
   const clientRef = useRef<HTMLDivElement>(null);
 
   // Close client dropdown on outside click
@@ -126,20 +129,18 @@ export default function BillingPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // ─── Filtered clients ──────────────────────────────────────────────────────
-  const filteredClients = useMemo(() => {
-    if (!clientSearch.trim()) return SAMPLE_CLIENTS;
-    const q = clientSearch.toLowerCase();
-    return SAMPLE_CLIENTS.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.phone.includes(q)
-    );
+  // Live client search
+  useEffect(() => {
+    if (!clientSearch.trim()) { setLiveClients([]); return; }
+    const t = setTimeout(() => {
+      fetch(`/api/clients?search=${encodeURIComponent(clientSearch)}`)
+        .then((r) => r.json())
+        .then((data) => setLiveClients(Array.isArray(data) ? data.slice(0, 8) : []));
+    }, 300);
+    return () => clearTimeout(t);
   }, [clientSearch]);
 
-  // ─── Selected client ──────────────────────────────────────────────────────
-  const selectedClient = useMemo(() => {
-    if (!activeBill.clientId) return null;
-    return SAMPLE_CLIENTS.find((c) => c.id === activeBill.clientId) ?? null;
-  }, [activeBill.clientId]);
+  const filteredClients = liveClients;
 
   // ─── Filtered services ────────────────────────────────────────────────────
   const filteredServices = useMemo(() => {
@@ -210,15 +211,9 @@ export default function BillingPage() {
   }
 
   // ─── Complete bill ─────────────────────────────────────────────────────────
-  function completeBill() {
-    if (items.length === 0) {
-      toast.error("Cart is empty");
-      return;
-    }
-    if (!paymentMethod) {
-      toast.error("Select a payment method");
-      return;
-    }
+  async function completeBill() {
+    if (items.length === 0) { toast.error("Cart is empty"); return; }
+    if (!paymentMethod) { toast.error("Select a payment method"); return; }
     if (paymentMethod === "SPLIT") {
       const s1 = parseFloat(splitAmount1) || 0;
       const s2 = parseFloat(splitAmount2) || 0;
@@ -227,10 +222,41 @@ export default function BillingPage() {
         return;
       }
     }
-    const inv = generateInvoiceNumber();
-    setInvoiceNumber(inv);
-    updateActiveBill({ paymentMethod: paymentMethod as typeof activeBill.paymentMethod });
-    setShowSuccess(true);
+    try {
+      const res = await fetch("/api/invoices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: activeBill.clientId || null,
+          walkInName: activeBill.walkInName || null,
+          staffId: activeBill.staffId || null,
+          items: items.map((item) => ({
+            name: item.name,
+            quantity: item.quantity,
+            rate: item.rate,
+            discount: item.discount || 0,
+            cgst: (item.rate * item.quantity * 0.09),
+            sgst: (item.rate * item.quantity * 0.09),
+            total: item.rate * item.quantity - (item.discountType === "percent" ? item.rate * item.quantity * (item.discount / 100) : item.discount),
+          })),
+          subtotal: totals.subtotal,
+          taxAmount: totals.gstAmount,
+          discount: totals.subtotal - totals.afterOverallDiscount + totals.loyaltyDiscount,
+          tips: tips || 0,
+          totalAmount: totals.total,
+          amountPaid: totals.total,
+          paymentMethod,
+          status: "PAID",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save invoice");
+      setInvoiceNumber(data.invoiceNumber);
+      updateActiveBill({ paymentMethod: paymentMethod as typeof activeBill.paymentMethod });
+      setShowSuccess(true);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create invoice");
+    }
   }
 
   // ─── WhatsApp share ───────────────────────────────────────────────────────
@@ -295,6 +321,7 @@ export default function BillingPage() {
                     onClick={(e) => {
                       e.stopPropagation();
                       updateActiveBill({ clientId: undefined, clientName: undefined, clientPhone: undefined });
+                      setSelectedClient(null);
                       setClientSearch("");
                     }}
                     className="text-stone-400 hover:text-stone-700"
@@ -323,6 +350,7 @@ export default function BillingPage() {
                     className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-stone-50 text-left"
                     onClick={() => {
                       updateActiveBill({ clientId: c.id, clientName: c.name, clientPhone: c.phone });
+                      setSelectedClient(c);
                       setClientSearch(c.name);
                       setShowClientDropdown(false);
                     }}

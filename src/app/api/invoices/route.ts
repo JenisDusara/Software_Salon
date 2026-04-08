@@ -56,3 +56,67 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
+
+export async function POST(req: NextRequest) {
+  try {
+    const tenantId = getTenantId();
+    const body = await req.json();
+    const {
+      clientId, walkInName, staffId, items, subtotal, taxAmount,
+      discount, tips, totalAmount, amountPaid, paymentMethod, status,
+    } = body;
+
+    // Generate invoice number
+    const count = await prisma.invoice.count({ where: { tenantId } });
+    const invoiceNumber = `INV-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`;
+
+    const invoice = await prisma.invoice.create({
+      data: {
+        tenantId,
+        branchId: "b1-seed",
+        invoiceNumber,
+        clientId: clientId || null,
+        walkInName: !clientId ? (walkInName || "Walk-in") : null,
+        staffId: staffId || "s1-seed",
+        date: new Date(),
+        subtotal: Number(subtotal),
+        taxAmount: Number(taxAmount),
+        discount: Number(discount || 0),
+        tips: Number(tips || 0),
+        totalAmount: Number(totalAmount),
+        amountPaid: Number(amountPaid || totalAmount),
+        paymentMethod: paymentMethod || "CASH",
+        status: status || "PAID",
+        items: {
+          create: (items as any[]).map((item: any) => ({
+            description: item.name || item.description,
+            quantity: item.quantity,
+            rate: item.rate,
+            discount: item.discount || 0,
+            cgst: item.cgst || 0,
+            sgst: item.sgst || 0,
+            total: item.total || item.rate * item.quantity,
+          })),
+        },
+      },
+    });
+
+    // Update client loyalty points & visit count
+    if (clientId) {
+      const pointsEarned = Math.floor(Number(totalAmount) / 100);
+      await prisma.client.updateMany({
+        where: { id: clientId, tenantId },
+        data: {
+          visitCount: { increment: 1 },
+          totalSpent: { increment: Number(totalAmount) },
+          loyaltyPoints: { increment: pointsEarned },
+          lastVisit: new Date(),
+        },
+      });
+    }
+
+    return NextResponse.json({ ...invoice, invoiceNumber }, { status: 201 });
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message }, { status: 500 });
+  }
+}

@@ -7,7 +7,8 @@
     ],
     "additionalDirectories": [
       "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\(dashboard)\\clients",
-      "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\api\\clients"
+      "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\api\\clients",
+      "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\book"
     ]
   }
 }
