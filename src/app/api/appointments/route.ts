@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   try {
     const tenantId = getTenantId();
     const body = await req.json();
-    const { clientId, walkInName, walkInPhone, staffId, serviceId, date, time, notes } = body;
+    const { clientId, walkInName, staffId, serviceId, date, time, notes } = body;
 
     if (!staffId || !serviceId) {
       return NextResponse.json({ error: "Staff and service required" }, { status: 400 });

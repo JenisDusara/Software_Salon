@@ -101,7 +101,6 @@ export default function AppointmentsPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const clientName = form.clientType === "walkin" ? (form.walkInName || "Walk-in Client") : clientSearch;
     if (form.clientType === "existing" && !form.clientId) { toast.error("Please select a client"); return; }
     if (!form.staffId) { toast.error("Please assign a staff member"); return; }
     if (!form.serviceId) { toast.error("Please select a service"); return; }
