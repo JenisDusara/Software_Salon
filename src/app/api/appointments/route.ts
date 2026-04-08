@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
     const shaped = appointments.map((a: ApptRow) => ({
       id: a.id,
       clientName: a.client?.name ?? a.walkInName ?? "Walk-in",
-      serviceName: a.items.map((i) => i.service?.name ?? "").filter(Boolean).join(", "),
+      serviceName: a.items.map((i: { service?: { name: string } | null }) => i.service?.name ?? "").filter(Boolean).join(", "),
       staffName: a.staff?.name ?? "",
       time: a.startTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
       duration: Math.round((a.endTime.getTime() - a.startTime.getTime()) / 60000),
