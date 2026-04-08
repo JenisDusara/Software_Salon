@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Search,
   Plus,
@@ -30,9 +30,14 @@ import {
   isOverdue,
   daysAgo,
 } from "@/lib/utils";
-import { SAMPLE_INVOICES } from "@/data/sampleData";
-
-type Invoice = (typeof SAMPLE_INVOICES)[number];
+type Invoice = {
+  id: string; invoiceNumber: string; clientId: string | null; clientName: string; clientPhone: string;
+  staffName: string;
+  items: Array<{ description: string; quantity: number; rate: number; discount: number; cgst: number; sgst: number; total: number }>;
+  subtotal: number; taxAmount: number; discount: number; tips: number;
+  totalAmount: number; amountPaid: number; paymentMethod: string | null;
+  status: string; date: string; dueDate: string | null;
+};
 
 const STATUS_CHIPS = ["All", "Paid", "Pending", "Overdue", "Draft"] as const;
 type StatusChip = (typeof STATUS_CHIPS)[number];
@@ -378,17 +383,26 @@ function InvoiceDetailPanel({
 }
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState(
-    SAMPLE_INVOICES.map((inv) => ({
-      ...inv,
-      status:
-        inv.status === "PENDING" && isOverdue(inv.dueDate) ? "OVERDUE" : inv.status,
-    }))
-  );
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [search, setSearch] = useState("");
   const [activeStatus, setActiveStatus] = useState<StatusChip>("All");
   const [activeDateFilter, setActiveDateFilter] = useState<DateFilter | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+
+  const fetchInvoices = useCallback(async () => {
+    try {
+      const res = await fetch("/api/invoices");
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setInvoices(data.map((inv: Invoice) => ({
+          ...inv,
+          status: inv.status === "PENDING" && isOverdue(inv.dueDate) ? "OVERDUE" : inv.status,
+        })));
+      }
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => { fetchInvoices(); }, [fetchInvoices]);
 
   // Stats calculations
   const paidInvoices = invoices.filter((i) => i.status === "PAID");
@@ -436,24 +450,28 @@ export default function InvoicesPage() {
     return matchesSearch && matchesStatus && matchesDate;
   });
 
-  function handleMarkPaid(id: string) {
-    setInvoices((prev) =>
-      prev.map((inv) =>
-        inv.id === id ? { ...inv, status: "PAID", amountPaid: inv.totalAmount } : inv
-      )
-    );
-    if (selectedInvoice?.id === id) {
-      setSelectedInvoice((prev) =>
-        prev ? { ...prev, status: "PAID", amountPaid: prev.totalAmount } : null
-      );
-    }
-    toast.success("Invoice marked as paid");
+  async function handleMarkPaid(id: string) {
+    const inv = invoices.find((i) => i.id === id);
+    if (!inv) return;
+    try {
+      await fetch(`/api/invoices/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "PAID", amountPaid: inv.totalAmount, paymentMethod: inv.paymentMethod ?? "CASH" }),
+      });
+      setInvoices((prev) => prev.map((i) => i.id === id ? { ...i, status: "PAID", amountPaid: i.totalAmount } : i));
+      if (selectedInvoice?.id === id) setSelectedInvoice((prev) => prev ? { ...prev, status: "PAID", amountPaid: prev.totalAmount } : null);
+      toast.success("Invoice marked as paid");
+    } catch { toast.error("Failed to update invoice"); }
   }
 
-  function handleDelete(id: string) {
-    setInvoices((prev) => prev.filter((inv) => inv.id !== id));
-    if (selectedInvoice?.id === id) setSelectedInvoice(null);
-    toast.success("Invoice deleted");
+  async function handleDelete(id: string) {
+    try {
+      await fetch(`/api/invoices/${id}`, { method: "DELETE" });
+      setInvoices((prev) => prev.filter((inv) => inv.id !== id));
+      if (selectedInvoice?.id === id) setSelectedInvoice(null);
+      toast.success("Invoice deleted");
+    } catch { toast.error("Failed to delete invoice"); }
   }
 
   const stats = [

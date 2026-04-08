@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   TrendingDown,
   Trophy,
@@ -28,7 +28,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { formatINR, formatDate } from "@/lib/utils";
-import { SAMPLE_EXPENSES, EXPENSE_CATEGORIES } from "@/data/sampleData";
+import { EXPENSE_CATEGORIES } from "@/data/sampleData";
 
 type Expense = {
   id: string;
@@ -246,11 +246,25 @@ const CustomPieTooltip = ({ active, payload }: { active?: boolean; payload?: Arr
 };
 
 export default function ExpensesPage() {
-  const [expenses, setExpenses] = useState<Expense[]>(
-    SAMPLE_EXPENSES as Expense[]
-  );
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [viewMode, setViewMode] = useState<"table" | "card">("table");
   const [recurringOpen, setRecurringOpen] = useState(true);
+
+  const fetchExpenses = useCallback(async () => {
+    try {
+      const res = await fetch("/api/expenses");
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setExpenses(data.map((e) => ({
+          ...e,
+          categoryName: EXPENSE_CATEGORIES.find((c) => c.id === e.categoryId)?.name ?? e.categoryName ?? e.categoryId,
+          date: new Date(e.date),
+        })));
+      }
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => { fetchExpenses(); }, [fetchExpenses]);
   const [pausedRecurring, setPausedRecurring] = useState<Set<string>>(new Set());
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
@@ -302,52 +316,60 @@ export default function ExpensesPage() {
 
   const recurringExpenses = expenses.filter((e) => e.isRecurring);
 
-  function handleAddExpense(e: React.FormEvent) {
+  async function handleAddExpense(e: React.FormEvent) {
     e.preventDefault();
-    if (!formDescription.trim()) {
-      toast.error("Enter a description");
-      return;
-    }
+    if (!formDescription.trim()) { toast.error("Enter a description"); return; }
     const amt = parseFloat(formAmount);
-    if (!amt || amt <= 0) {
-      toast.error("Enter a valid amount");
-      return;
-    }
+    if (!amt || amt <= 0) { toast.error("Enter a valid amount"); return; }
     const cat = EXPENSE_CATEGORIES.find((c) => c.id === formCategory);
-    const newExp: Expense = {
-      id: `e${Date.now()}`,
-      categoryId: formCategory,
-      categoryName: cat?.name ?? "",
-      description: formDescription.trim(),
-      amount: amt,
-      date: new Date(formDate),
-      paymentMethod: formPayment,
-      vendorName: formVendor.trim() || null,
-      isRecurring: formRecurring,
-      recurringFreq: formRecurring ? formFrequency : null,
-    };
-    setExpenses((prev) => [newExp, ...prev]);
-    toast.success("Expense added successfully");
-    // Reset form
-    setFormDescription("");
-    setFormAmount("");
-    setFormVendor("");
-    setFormNotes("");
-    setFormRecurring(false);
-    setAdvancedOpen(false);
+    try {
+      const res = await fetch("/api/expenses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          categoryId: formCategory,
+          categoryName: cat?.name ?? formCategory,
+          description: formDescription.trim(),
+          amount: amt,
+          date: formDate,
+          paymentMethod: formPayment,
+          vendorName: formVendor.trim() || null,
+          isRecurring: formRecurring,
+          recurringFreq: formRecurring ? formFrequency : null,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      await fetchExpenses();
+      toast.success("Expense added successfully");
+      setFormDescription(""); setFormAmount(""); setFormVendor(""); setFormNotes("");
+      setFormRecurring(false); setAdvancedOpen(false);
+    } catch { toast.error("Failed to add expense"); }
   }
 
-  function handleDeleteExpense(id: string) {
-    setExpenses((prev) => prev.filter((e) => e.id !== id));
-    toast.success("Expense deleted");
+  async function handleDeleteExpense(id: string) {
+    try {
+      await fetch(`/api/expenses/${id}`, { method: "DELETE" });
+      setExpenses((prev) => prev.filter((e) => e.id !== id));
+      toast.success("Expense deleted");
+    } catch { toast.error("Failed to delete expense"); }
   }
 
-  function handleSaveEdit(updated: Expense) {
-    setExpenses((prev) =>
-      prev.map((e) => (e.id === updated.id ? updated : e))
-    );
-    setEditingExpense(null);
-    toast.success("Expense updated");
+  async function handleSaveEdit(updated: Expense) {
+    const cat = EXPENSE_CATEGORIES.find((c) => c.id === updated.categoryId);
+    try {
+      await fetch(`/api/expenses/${updated.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...updated,
+          categoryName: cat?.name ?? updated.categoryName,
+          date: updated.date instanceof Date ? updated.date.toISOString() : updated.date,
+        }),
+      });
+      await fetchExpenses();
+      setEditingExpense(null);
+      toast.success("Expense updated");
+    } catch { toast.error("Failed to update expense"); }
   }
 
   function togglePause(id: string) {

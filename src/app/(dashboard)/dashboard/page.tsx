@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   AreaChart,
   Area,
@@ -24,11 +24,15 @@ import {
   ArrowUpRight,
 } from "lucide-react";
 import { formatINR, formatDate, getInitials, getAvatarColor } from "@/lib/utils";
-import {
-  MONTHLY_REVENUE_DATA,
-  TODAY_APPOINTMENTS,
-  SAMPLE_INVOICES,
-} from "@/data/sampleData";
+import { MONTHLY_REVENUE_DATA } from "@/data/sampleData";
+
+type DashStats = {
+  totalClients: number; newClientsThisMonth: number; monthRevenue: number;
+  outstandingAmount: number; staffCount: number;
+  todayAppointmentsCount: number; todayCompleted: number; todayRevenue: number;
+};
+type TodayAppt = { id: string; clientName: string; serviceName: string; staffName: string; time: string; duration: number; status: string; amount: number };
+type RecentInv = { id: string; invoiceNumber: string; clientName: string; clientPhone: string; items: { description: string }[]; totalAmount: number; status: string };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -180,9 +184,25 @@ function PieTooltip({ active, payload }: {
 
 export default function DashboardPage() {
   const [revenuePeriod, setRevenuePeriod] = useState<"Week" | "Month" | "Year">("Month");
+  const [stats, setStats] = useState<DashStats | null>(null);
+  const [todayAppts, setTodayAppts] = useState<TodayAppt[]>([]);
+  const [recentInvoices, setRecentInvoices] = useState<RecentInv[]>([]);
 
   const today = new Date();
-  const recentInvoices = SAMPLE_INVOICES.slice(0, 5);
+
+  useEffect(() => {
+    const todayStr = today.toISOString().split("T")[0];
+    Promise.all([
+      fetch("/api/dashboard").then((r) => r.json()),
+      fetch(`/api/appointments?date=${todayStr}`).then((r) => r.json()),
+      fetch("/api/invoices").then((r) => r.json()),
+    ]).then(([s, a, inv]) => {
+      setStats(s);
+      setTodayAppts(Array.isArray(a) ? a : []);
+      setRecentInvoices(Array.isArray(inv) ? inv.slice(0, 5) : []);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div className="space-y-6 p-6 bg-[#FAFAF9] min-h-screen">
@@ -216,43 +236,36 @@ export default function DashboardPage() {
         <KpiCard
           iconBg="bg-amber-100"
           icon={<DollarSign className="w-5 h-5 text-[#D97706]" />}
-          value="₹18,450"
+          value={formatINR(stats?.todayRevenue ?? 0)}
           label="Today's Revenue"
-          trend={
-            <span className="flex items-center gap-1 text-xs font-medium text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full">
-              <ArrowUpRight className="w-3 h-3" />
-              +12%
-            </span>
-          }
-          sub="vs yesterday"
+          sub={`${stats?.todayCompleted ?? 0} completed appointments`}
         />
 
         {/* Card 2 – Appointments */}
         <KpiCard
           iconBg="bg-blue-100"
           icon={<Calendar className="w-5 h-5 text-blue-600" />}
-          value="7"
+          value={String(stats?.todayAppointmentsCount ?? 0)}
           label="Today's Appointments"
-          sub="3 completed • 2 upcoming"
+          sub={`${stats?.todayCompleted ?? 0} completed`}
         />
 
         {/* Card 3 – Pending Amount */}
         <KpiCard
           iconBg="bg-amber-100"
           icon={<Clock className="w-5 h-5 text-[#D97706]" />}
-          value="₹26,540"
+          value={formatINR(stats?.outstandingAmount ?? 0)}
           label="Pending Collections"
-          sub="5 invoices"
           valueColor="text-[#D97706]"
         />
 
-        {/* Card 4 – Active Clients */}
+        {/* Card 4 – New Clients */}
         <KpiCard
           iconBg="bg-purple-100"
           icon={<Users className="w-5 h-5 text-purple-600" />}
-          value="12"
+          value={String(stats?.newClientsThisMonth ?? 0)}
           label="New Clients This Month"
-          sub="+3 vs last month"
+          sub={`${stats?.totalClients ?? 0} total clients`}
           trend={
             <TrendingUp className="w-4 h-4 text-purple-400" />
           }
@@ -355,7 +368,10 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-3">
-            {TODAY_APPOINTMENTS.map((appt) => (
+            {todayAppts.length === 0 && (
+              <p className="text-sm text-[#78716C] text-center py-4">No appointments today</p>
+            )}
+            {todayAppts.map((appt) => (
               <div
                 key={appt.id}
                 className="flex items-center gap-3 p-3 rounded-xl hover:bg-[#FAFAF9] transition-colors border border-transparent hover:border-[#E7E5E4]"
@@ -502,6 +518,9 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
+              {recentInvoices.length === 0 && (
+                <tr><td colSpan={6} className="py-8 text-center text-[#78716C] text-sm">No invoices yet</td></tr>
+              )}
               {recentInvoices.map((inv) => (
                 <tr
                   key={inv.id}
@@ -546,6 +565,9 @@ export default function DashboardPage() {
 
         {/* Mobile card list */}
         <div className="md:hidden space-y-3">
+          {recentInvoices.length === 0 && (
+            <p className="text-sm text-center text-[#78716C] py-4">No invoices yet</p>
+          )}
           {recentInvoices.map((inv) => (
             <div
               key={inv.id}
