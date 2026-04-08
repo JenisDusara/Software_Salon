@@ -27,16 +27,28 @@ export async function GET(req: NextRequest) {
     });
 
     // Shape data for frontend
-    type ApptRow = typeof appointments[number];
-    const shaped = appointments.map((a: ApptRow) => ({
-      id: a.id,
-      clientName: a.client?.name ?? a.walkInName ?? "Walk-in",
-      serviceName: a.items.map((i: { service?: { name: string } | null }) => i.service?.name ?? "").filter(Boolean).join(", "),
-      staffName: a.staff?.name ?? "",
-      time: a.startTime.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }),
-      duration: Math.round((a.endTime.getTime() - a.startTime.getTime()) / 60000),
-      status: a.status,
-      amount: a.totalPrice,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const shaped = (appointments as any[]).map((a) => ({
+      id: String(a.id),
+      clientName: String(a.client?.name ?? a.walkInName ?? "Walk-in"),
+      serviceName: (a.items ?? [])
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .map((i: any) => i?.service?.name ?? "")
+        .filter(Boolean)
+        .join(", "),
+      staffName: String(a.staff?.name ?? ""),
+      time: String(
+        (a.startTime as Date).toLocaleTimeString("en-IN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
+      ),
+      duration: Math.round(
+        ((a.endTime as Date).getTime() - (a.startTime as Date).getTime()) / 60000
+      ),
+      status: String(a.status),
+      amount: Number(a.totalPrice),
     }));
 
     return NextResponse.json(shaped);
