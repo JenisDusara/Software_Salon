@@ -27,7 +27,8 @@ export async function GET(req: NextRequest) {
     });
 
     // Shape data for frontend
-    const shaped = appointments.map((a) => ({
+    type ApptRow = typeof appointments[number];
+    const shaped = appointments.map((a: ApptRow) => ({
       id: a.id,
       clientName: a.client?.name ?? a.walkInName ?? "Walk-in",
       serviceName: a.items.map((i) => i.service?.name ?? "").filter(Boolean).join(", "),
