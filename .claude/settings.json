@@ -3,7 +3,8 @@
     "allow": [
       "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"haa reset karo\" npx prisma migrate reset --force)",
       "Bash(npm run:*)",
-      "Read(//c/Users/Jenish/.claude/projects/c--Users-Jenish-Desktop-software-salon/a2e154ac-d9b5-4ffe-8717-fd26739b58b7/tool-results/**)"
+      "Read(//c/Users/Jenish/.claude/projects/c--Users-Jenish-Desktop-software-salon/a2e154ac-d9b5-4ffe-8717-fd26739b58b7/tool-results/**)",
+      "Bash(npx next:*)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\(dashboard)\\clients",
