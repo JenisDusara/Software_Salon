@@ -130,21 +130,21 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-bold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Reports</h1>
           <p className="text-[#78716C] text-sm mt-0.5">Business analytics &amp; performance insights</p>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex items-center bg-white border border-[#E7E5E4] rounded-lg overflow-hidden shadow-sm">
+        <div className="flex items-center gap-2 overflow-x-auto">
+          <div className="flex items-center bg-white border border-[#E7E5E4] rounded-lg overflow-hidden shadow-sm shrink-0">
             {PERIODS.map((p) => (
               <button
                 key={p}
                 onClick={() => setActivePeriod(p)}
-                className={`px-3 py-2 text-sm font-medium transition ${activePeriod === p ? "bg-[#1C1917] text-white" : "text-[#78716C] hover:bg-[#F5F5F4]"}`}
+                className={`px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-medium transition whitespace-nowrap ${activePeriod === p ? "bg-[#1C1917] text-white" : "text-[#78716C] hover:bg-[#F5F5F4]"}`}
               >
                 {p}
               </button>
             ))}
           </div>
-          <button className="flex items-center gap-1.5 px-3 py-2 border border-[#E7E5E4] bg-white rounded-lg text-sm text-[#78716C] hover:bg-[#F5F5F4] shadow-sm transition">
+          <button className="flex items-center gap-1.5 px-3 py-2 border border-[#E7E5E4] bg-white rounded-lg text-sm text-[#78716C] hover:bg-[#F5F5F4] shadow-sm transition shrink-0">
             <Download className="w-4 h-4" />
-            Export
+            <span className="hidden sm:inline">Export</span>
           </button>
         </div>
       </div>
@@ -251,7 +251,30 @@ export default function ReportsPage() {
               <EmptyState message="No staff performance data yet" />
             ) : (
               <>
-                <div className="overflow-x-auto">
+                {/* Mobile card view */}
+                <div className="md:hidden space-y-3 mb-5">
+                  {staffPerf.map((staff) => {
+                    const netToSalon = staff.revenue - staff.commission;
+                    const sharePercent = totalStaffRevenue > 0 ? Math.round((staff.revenue / totalStaffRevenue) * 100) : 0;
+                    return (
+                      <div key={staff.name} className="bg-[#FAFAF9] rounded-xl p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <p className="font-semibold text-[#1C1917] text-sm">{staff.name}</p>
+                          <span className="text-xs text-[#78716C]">{sharePercent}% of team</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div><p className="text-xs text-[#78716C]">Appointments</p><p className="font-medium text-[#1C1917]">{staff.appointments}</p></div>
+                          <div><p className="text-xs text-[#78716C]">Revenue</p><p className="font-semibold text-[#1C1917]">{formatINR(staff.revenue)}</p></div>
+                          <div><p className="text-xs text-[#78716C]">Commission</p><p className="font-medium text-amber-600">{formatINR(staff.commission)}</p></div>
+                          <div><p className="text-xs text-[#78716C]">Net to Salon</p><p className="font-semibold text-emerald-600">{formatINR(netToSalon)}</p></div>
+                        </div>
+                        <div className="mt-3 h-1.5 bg-[#E7E5E4] rounded-full"><div className="h-full bg-[#D97706] rounded-full" style={{ width: `${sharePercent}%` }} /></div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="hidden md:block overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-[#E7E5E4] bg-[#FAFAF9]">

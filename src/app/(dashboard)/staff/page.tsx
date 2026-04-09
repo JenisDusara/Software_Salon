@@ -164,10 +164,10 @@ export default function StaffPage() {
         </div>
         <button
           onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#D97706] text-white rounded-xl font-medium hover:bg-amber-600 transition text-sm"
+          className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-[#D97706] text-white rounded-xl font-medium hover:bg-amber-600 transition text-sm shrink-0"
         >
           <Plus className="w-4 h-4" />
-          Add Staff
+          <span className="hidden sm:inline">Add Staff</span>
         </button>
       </div>
 

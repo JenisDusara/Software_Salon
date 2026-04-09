@@ -145,9 +145,9 @@ export default function AppointmentsPage() {
           <p className="text-[#78716C] text-sm mt-0.5">Manage bookings and schedule</p>
         </div>
         <button onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#D97706] text-white rounded-xl font-medium hover:bg-amber-600 transition text-sm">
+          className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-[#D97706] text-white rounded-xl font-medium hover:bg-amber-600 transition text-sm shrink-0">
           <Plus className="w-4 h-4" />
-          New Appointment
+          <span className="hidden sm:inline">New Appointment</span>
         </button>
       </div>
 
@@ -157,8 +157,9 @@ export default function AppointmentsPage() {
           <ChevronLeft className="w-4 h-4 text-[#78716C]" />
         </button>
         <div className="flex-1 text-center">
-          <p className="font-semibold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-            {isToday ? "Today — " : ""}{displayDate.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+          <p className="font-semibold text-[#1C1917] text-sm sm:text-base" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+            <span className="hidden sm:inline">{isToday ? "Today — " : ""}{displayDate.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</span>
+            <span className="sm:hidden">{isToday ? "Today" : displayDate.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</span>
           </p>
         </div>
         <button onClick={() => changeDate(1)} className="p-2 hover:bg-[#F5F5F4] rounded-lg transition">

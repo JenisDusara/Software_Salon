@@ -103,8 +103,8 @@ export default function InventoryPage() {
           <h1 className="text-2xl font-bold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Inventory</h1>
           <p className="text-[#78716C] text-sm mt-0.5">{products.length} products · {lowStock.length} low stock alerts</p>
         </div>
-        <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 bg-[#D97706] text-white rounded-xl font-medium hover:bg-amber-600 transition text-sm">
-          <Plus className="w-4 h-4" /> Add Product
+        <button onClick={openAdd} className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-[#D97706] text-white rounded-xl font-medium hover:bg-amber-600 transition text-sm shrink-0">
+          <Plus className="w-4 h-4" /><span className="hidden sm:inline">Add Product</span>
         </button>
       </div>
 
@@ -150,7 +150,42 @@ export default function InventoryPage() {
       {loading ? (
         <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-[#D97706]" /></div>
       ) : (
-        <div className="bg-white rounded-xl border border-[#E7E5E4] shadow-sm overflow-hidden">
+        <>
+        {/* Mobile card view */}
+        <div className="md:hidden space-y-3">
+          {filtered.length === 0 && <p className="text-center text-[#78716C] py-8">No products found</p>}
+          {filtered.map((p) => {
+            const margin = p.sellingPrice > 0 ? Math.round(((p.sellingPrice - p.costPrice) / p.sellingPrice) * 100) : 0;
+            return (
+              <div key={p.id} className="bg-white rounded-xl border border-[#E7E5E4] shadow-sm p-4">
+                <div className="flex items-start justify-between gap-2 mb-3">
+                  <div>
+                    <p className="font-medium text-[#1C1917] text-sm">{p.name}</p>
+                    <p className="text-xs text-[#78716C]">{p.brand} · {p.category}</p>
+                  </div>
+                  <button
+                    onClick={() => { setShowStockModal(p); setStockAdjust(""); }}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium shrink-0 ${p.stockLevel <= p.minStockThreshold ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"}`}>
+                    {p.stockLevel} units
+                  </button>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center pt-3 border-t border-[#E7E5E4]">
+                  <div><p className="text-xs text-[#78716C]">Cost</p><p className="text-sm font-medium text-[#1C1917]">{formatINR(p.costPrice)}</p></div>
+                  <div><p className="text-xs text-[#78716C]">Price</p><p className="text-sm font-semibold text-[#1C1917]">{formatINR(p.sellingPrice)}</p></div>
+                  <div><p className="text-xs text-[#78716C]">Margin</p><p className="text-sm font-medium text-emerald-600">{margin}%</p></div>
+                </div>
+                <div className="flex items-center justify-end gap-3 mt-3 pt-2 border-t border-[#E7E5E4]">
+                  <button onClick={() => openEdit(p)} className="text-xs text-[#D97706] font-medium">Edit</button>
+                  <span className="text-[#E7E5E4]">|</span>
+                  <button onClick={() => handleDelete(p.id)} className="text-xs text-red-500 font-medium">Delete</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden md:block bg-white rounded-xl border border-[#E7E5E4] shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
@@ -195,6 +230,7 @@ export default function InventoryPage() {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {/* Add/Edit Modal */}

@@ -223,10 +223,10 @@ export default function MarketingPage() {
         </div>
         <button
           onClick={() => { resetForm(); setShowNewModal(true); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#D97706] text-white rounded-xl font-medium hover:bg-amber-600 transition text-sm"
+          className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-[#D97706] text-white rounded-xl font-medium hover:bg-amber-600 transition text-sm shrink-0"
         >
           <Send className="w-4 h-4" />
-          New Campaign
+          <span className="hidden sm:inline">New Campaign</span>
         </button>
       </div>
 

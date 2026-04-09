@@ -175,7 +175,7 @@ export default function DashboardPage() {
   const maxServiceRevenue = topServices[0]?.revenue ?? 1;
 
   return (
-    <div className="space-y-6 p-6 bg-[#FAFAF9] min-h-screen">
+    <div className="space-y-6">
       {/* ── 1. Page Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

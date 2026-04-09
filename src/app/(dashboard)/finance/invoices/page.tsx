@@ -515,7 +515,7 @@ export default function InvoicesPage() {
 
       <div className={`flex gap-0 transition-all duration-300 ${selectedInvoice ? "pr-0" : ""}`}>
         {/* Main content */}
-        <div className={`flex-1 min-w-0 transition-all duration-300 ${selectedInvoice ? "mr-[420px]" : ""}`}>
+        <div className={`flex-1 min-w-0 transition-all duration-300 ${selectedInvoice ? "md:mr-[420px]" : ""}`}>
           {/* Header */}
           <div className="flex items-start justify-between mb-6">
             <div>

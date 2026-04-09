@@ -146,12 +146,12 @@ export default function ProfitLossPage() {
 
       {/* ─── Controls Bar ─── */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-        <div className="flex items-center bg-white border border-[#E7E5E4] rounded-lg overflow-hidden shadow-sm">
+        <div className="flex items-center bg-white border border-[#E7E5E4] rounded-lg overflow-hidden shadow-sm overflow-x-auto shrink-0 max-w-full">
           {PERIODS.map((p) => (
             <button
               key={p}
               onClick={() => setActivePeriod(p)}
-              className={`px-3 py-2 text-sm font-medium transition-colors ${activePeriod === p ? "bg-stone-900 text-white" : "text-stone-600 hover:bg-stone-50"}`}
+              className={`px-2.5 sm:px-3 py-2 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${activePeriod === p ? "bg-stone-900 text-white" : "text-stone-600 hover:bg-stone-50"}`}
             >
               {p}
             </button>

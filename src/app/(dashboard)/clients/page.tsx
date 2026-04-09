@@ -83,8 +83,8 @@ export default function ClientsPage() {
           <h1 className="text-2xl font-bold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Clients</h1>
           <p className="text-[#78716C] text-sm mt-0.5">{clients.length} total clients</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-4 py-2.5 bg-[#D97706] text-white rounded-xl font-medium hover:bg-amber-600 transition text-sm">
-          <Plus className="w-4 h-4" /> Add Client
+        <button onClick={() => setShowModal(true)} className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-[#D97706] text-white rounded-xl font-medium hover:bg-amber-600 transition text-sm shrink-0">
+          <Plus className="w-4 h-4" /><span className="hidden sm:inline">Add Client</span>
         </button>
       </div>
 
