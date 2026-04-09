@@ -25,10 +25,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Category and amount required" }, { status: 400 });
     }
 
+    const branch = await prisma.branch.findFirst({ where: { tenantId } });
+    if (!branch) return NextResponse.json({ error: "No branch found" }, { status: 400 });
+
     const expense = await prisma.expense.create({
       data: {
         tenantId,
-        branchId: "b1-seed",
+        branchId: branch.id,
         categoryId: categoryId ?? "ec12",
         categoryName,
         description: description || null,
@@ -38,7 +41,6 @@ export async function POST(req: NextRequest) {
         vendorName: vendorName || null,
         isRecurring: Boolean(isRecurring),
         recurringFreq: recurringFreq || null,
-        createdById: "s1-seed",
       },
     });
     return NextResponse.json(expense, { status: 201 });

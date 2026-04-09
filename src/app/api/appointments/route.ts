@@ -70,6 +70,9 @@ export async function POST(req: NextRequest) {
     const service = await prisma.service.findFirst({ where: { id: serviceId, tenantId } });
     if (!service) return NextResponse.json({ error: "Service not found" }, { status: 404 });
 
+    const branch = await prisma.branch.findFirst({ where: { tenantId } });
+    if (!branch) return NextResponse.json({ error: "No branch found" }, { status: 400 });
+
     const apptDate = new Date(date);
     apptDate.setHours(0, 0, 0, 0);
 
@@ -89,7 +92,7 @@ export async function POST(req: NextRequest) {
     const appointment = await prisma.appointment.create({
       data: {
         tenantId,
-        branchId: "b1-seed",
+        branchId: branch.id,
         clientId: clientId || null,
         walkInName: !clientId ? (walkInName || "Walk-in") : null,
         staffId,

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
 import BottomNav from "@/components/layout/BottomNav";
 import MobileSidebar from "@/components/layout/MobileSidebar";
+import { useAppStore } from "@/store/useAppStore";
 
 export default function DashboardLayout({
   children,
@@ -12,6 +13,23 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const setBranches = useAppStore((s) => s.setBranches);
+  const setCurrentBranch = useAppStore((s) => s.setCurrentBranch);
+  const currentBranchId = useAppStore((s) => s.currentBranchId);
+
+  useEffect(() => {
+    fetch("/api/branches")
+      .then((r) => r.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length > 0) {
+          setBranches(data);
+          if (!currentBranchId) {
+            setCurrentBranch(data[0].id, data[0].name);
+          }
+        }
+      })
+      .catch(() => {});
+  }, [setBranches, setCurrentBranch, currentBranchId]);
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#FAFAF9]">

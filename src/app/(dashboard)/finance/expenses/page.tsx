@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   TrendingDown,
   Trophy,
-  ArrowDownUp,
+  ReceiptText,
   Plus,
   Download,
   ChevronDown,
@@ -386,8 +386,6 @@ export default function ExpensesPage() {
     });
   }
 
-  const LAST_MONTH_TOTAL = 275550; // demo value
-
   return (
     <div className="min-h-screen bg-[#FAFAF9]">
       <Toaster position="top-right" />
@@ -448,22 +446,19 @@ export default function ExpensesPage() {
           <p className="text-xs text-[#78716C] mt-1">{largestCategory.name}</p>
         </div>
 
-        {/* vs last month */}
+        {/* This month count */}
         <div className="bg-white rounded-xl border border-[#E7E5E4] shadow-sm p-5">
           <div className="flex items-start justify-between mb-3">
             <p className="text-xs font-medium text-[#78716C] uppercase tracking-wide">
-              vs Last Month
+              This Month
             </p>
             <div className="p-2 rounded-lg bg-amber-50">
-              <ArrowDownUp className="w-4 h-4 text-amber-600" />
+              <ReceiptText className="w-4 h-4 text-amber-600" />
             </div>
           </div>
-          <p className="text-xl font-bold text-red-600">
-            {totalThisMonth > LAST_MONTH_TOTAL ? "+" : ""}
-            {(((totalThisMonth - LAST_MONTH_TOTAL) / LAST_MONTH_TOTAL) * 100).toFixed(1)}%
-          </p>
+          <p className="text-xl font-bold text-[#1C1917]">{thisMonthExpenses.length}</p>
           <p className="text-xs text-[#78716C] mt-1">
-            Last month: {formatINR(LAST_MONTH_TOTAL)}
+            {thisMonthExpenses.length === 1 ? "expense entry" : "expense entries"}
           </p>
         </div>
       </div>

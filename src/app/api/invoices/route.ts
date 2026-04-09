@@ -70,14 +70,17 @@ export async function POST(req: NextRequest) {
     const count = await prisma.invoice.count({ where: { tenantId } });
     const invoiceNumber = `INV-${new Date().getFullYear()}-${String(count + 1).padStart(4, "0")}`;
 
+    const branch = await prisma.branch.findFirst({ where: { tenantId } });
+    if (!branch) return NextResponse.json({ error: "No branch found" }, { status: 400 });
+
     const invoice = await prisma.invoice.create({
       data: {
         tenantId,
-        branchId: "b1-seed",
+        branchId: branch.id,
         invoiceNumber,
         clientId: clientId || null,
         walkInName: !clientId ? (walkInName || "Walk-in") : null,
-        staffId: staffId || "s1-seed",
+        staffId: staffId || null,
         date: new Date(),
         subtotal: Number(subtotal),
         taxAmount: Number(taxAmount),

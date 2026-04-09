@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { UserCheck, Plus, Phone, Star, X, User, Briefcase, Percent, Mail, Loader2 } from "lucide-react";
 import { getInitials, getAvatarColor } from "@/lib/utils";
 import toast, { Toaster } from "react-hot-toast";
+import { useAppStore } from "@/store/useAppStore";
 
 type StaffMember = {
   id: string;
@@ -36,15 +37,16 @@ type StaffForm = {
   branchId: string;
 };
 
-const DEFAULT_FORM: StaffForm = { name: "", phone: "", role: "STAFF", commissionRate: "20", branchId: "b1" };
+const DEFAULT_FORM: StaffForm = { name: "", phone: "", role: "STAFF", commissionRate: "20", branchId: "" };
 
 
 export default function StaffPage() {
+  const branches = useAppStore((s) => s.branches);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editTarget, setEditTarget] = useState<StaffMember | null>(null);
-  const [form, setForm] = useState<StaffForm>(DEFAULT_FORM);
+  const [form, setForm] = useState<StaffForm>({ ...DEFAULT_FORM, branchId: "" });
   const [errors, setErrors] = useState<Partial<StaffForm>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -329,9 +331,10 @@ export default function StaffPage() {
                   onChange={(e) => setForm((f) => ({ ...f, branchId: e.target.value }))}
                   className="w-full px-3 py-2.5 border border-[#E7E5E4] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#D97706] bg-white"
                 >
-                  <option value="b1">Mumbai Main</option>
-                  <option value="b2">Mumbai Andheri</option>
-                  <option value="b3">Pune Branch</option>
+                  <option value="">Select branch</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
                 </select>
               </div>
 

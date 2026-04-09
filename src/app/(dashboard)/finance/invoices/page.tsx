@@ -242,8 +242,6 @@ function InvoiceDetailPanel({
             <span className="text-white font-bold text-sm">S</span>
           </div>
           <p className="font-semibold text-[#1C1917] text-sm">SalonSoft Pro</p>
-          <p className="text-xs text-[#78716C]">123, Linking Road, Bandra West, Mumbai</p>
-          <p className="text-xs text-[#78716C]">GST: 27AABCS1681G1ZF</p>
         </div>
 
         {/* Client info */}

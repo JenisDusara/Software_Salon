@@ -65,11 +65,6 @@ function getAvatarColor(name: string) {
   return colors[name.charCodeAt(0) % colors.length];
 }
 
-let invoiceSeq = 32;
-function generateInvoiceNumber() {
-  return `INV-2026-${String(invoiceSeq++).padStart(4, "0")}`;
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function BillingPage() {
   const {

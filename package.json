@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "seed": "npx tsx prisma/seed.ts",
+    "db:clear": "npx tsx prisma/clear.ts",
     "db:migrate": "npx prisma migrate dev",
     "db:studio": "npx prisma studio"
   },
