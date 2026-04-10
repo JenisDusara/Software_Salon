@@ -180,7 +180,7 @@ export default function Sidebar() {
                 <NavItemRow
                   key={item.path}
                   item={item}
-                  isActive={pathname === item.path || pathname.startsWith(item.path + "/")}
+                  isActive={pathname === item.path || (pathname?.startsWith(item.path + "/") ?? false)}
                   collapsed={sidebarCollapsed}
                 />
               ))}
@@ -195,7 +195,7 @@ export default function Sidebar() {
           )}
           <NavItemRow
             item={{ path: "/settings", icon: Settings, label: "Settings" }}
-            isActive={pathname === "/settings" || pathname.startsWith("/settings/")}
+            isActive={pathname === "/settings" || (pathname?.startsWith("/settings/") ?? false)}
             collapsed={sidebarCollapsed}
           />
         </div>

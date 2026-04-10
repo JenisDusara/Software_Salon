@@ -164,7 +164,7 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
                   const Icon = item.icon;
                   const isActive =
                     pathname === item.path ||
-                    pathname.startsWith(item.path + "/");
+                    (pathname?.startsWith(item.path + "/") ?? false);
                   return (
                     <Link key={item.path} href={item.path} className="block relative">
                       {isActive && (
@@ -197,7 +197,7 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
             {(() => {
               const isActive =
                 pathname === "/settings" ||
-                pathname.startsWith("/settings/");
+                (pathname?.startsWith("/settings/") ?? false);
               return (
                 <Link href="/settings" className="block relative">
                   {isActive && (

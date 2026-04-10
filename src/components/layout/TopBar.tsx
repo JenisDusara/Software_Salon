@@ -43,7 +43,7 @@ export default function TopBar({ onMenuClick, title }: TopBarProps) {
   const pathname = usePathname();
   const { user } = useAppStore();
 
-  const pageTitle = title ?? getPageTitle(pathname);
+  const pageTitle = title ?? getPageTitle(pathname ?? "");
   const userName = user?.name ?? "Admin User";
   const initials = getInitials(userName);
 

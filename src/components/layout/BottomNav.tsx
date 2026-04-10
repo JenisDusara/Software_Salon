@@ -37,9 +37,9 @@ export default function BottomNav({ onMoreClick }: BottomNavProps) {
   function isTabActive(tab: BottomTab): boolean {
     if (tab.isAction) return false;
     if (tab.path === "/dashboard") {
-      return pathname === "/dashboard" || pathname === "/";
+      return pathname === "/dashboard" || pathname === "/" || pathname === null;
     }
-    return pathname === tab.path || pathname.startsWith(tab.path + "/");
+    return pathname === tab.path || (pathname?.startsWith(tab.path + "/") ?? false);
   }
 
   return (

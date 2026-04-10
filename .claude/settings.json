@@ -9,7 +9,14 @@
       "Bash(mkdir -p \"c:\\\\Users\\\\Jenish\\\\Desktop\\\\software-salon\\\\src\\\\app\\\\super-admin\\\\tenant\\\\[id]\")",
       "Bash(mkdir -p \"c:\\\\Users\\\\Jenish\\\\Desktop\\\\software-salon\\\\src\\\\app\\\\api\\\\super-admin\\\\tenants\\\\[id]\")",
       "Bash(powershell -Command \"Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue\")",
-      "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 1; Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue; Remove-Item -Recurse -Force 'node_modules/.cache' -ErrorAction SilentlyContinue\")"
+      "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 1; Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue; Remove-Item -Recurse -Force 'node_modules/.cache' -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Milliseconds 500; Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue; Remove-Item -Recurse -Force 'node_modules/.cache' -ErrorAction SilentlyContinue\")",
+      "Bash(npm uninstall:*)",
+      "Bash(xargs grep:*)",
+      "Bash(cat /c/Users/Jenish/Desktop/software-salon/src/app/super-admin/tenant/[id]/page.tsx)",
+      "Bash(grep -E \"\\\\.ts$|\\\\.tsx$\")",
+      "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Milliseconds 800; Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 1\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\(dashboard)\\clients",

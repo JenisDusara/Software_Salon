@@ -45,6 +45,15 @@ export default function SuperAdminPage() {
   const [saving, setSaving] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowModal(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   const fetchTenants = useCallback(async () => {
     setLoading(true);
     try {
@@ -141,11 +150,11 @@ export default function SuperAdminPage() {
           <div className="flex items-center justify-between p-5 border-b border-[#E7E5E4]">
             <h2 className="font-bold text-[#1C1917]">Salon Clients</h2>
             <div className="flex items-center gap-2">
-              <button onClick={fetchTenants} className="p-2 text-[#78716C] hover:bg-[#F5F5F4] rounded-lg transition">
+              <button onClick={(e) => { e.stopPropagation(); fetchTenants(); }} className="p-2 text-[#78716C] hover:bg-[#F5F5F4] rounded-lg transition">
                 <RefreshCcw className="w-4 h-4" />
               </button>
               <button
-                onClick={() => setShowModal(true)}
+                onClick={(e) => { e.stopPropagation(); setShowModal(true); }}
                 className="flex items-center gap-2 px-4 py-2 bg-[#D97706] text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition"
               >
                 <Plus className="w-4 h-4" /> Add Client

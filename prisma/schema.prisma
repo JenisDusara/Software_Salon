@@ -1,10 +1,10 @@
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
 // Super Admin & Multi-Tenant Architecture
@@ -15,6 +15,10 @@ model Tenant {
   ownerEmail      String    @unique
   ownerPhone      String?
   city            String?
+  address         String?
+  gstin           String?
+  upiId           String?
+  logoUrl         String?
   subscriptionPlan String   @default("TRIAL") // TRIAL, BASIC, PRO, ENTERPRISE
   subscriptionExpiry DateTime?
   isActive        Boolean   @default(true)
