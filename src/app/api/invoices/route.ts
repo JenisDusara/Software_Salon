@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getTenantId } from "@/lib/tenant";
+import { resolveTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
-    const tenantId = getTenantId();
+    const tenantId = await resolveTenant();
+    if (tenantId instanceof NextResponse) return tenantId;
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
     const search = searchParams.get("search") ?? "";
@@ -59,7 +60,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const tenantId = getTenantId();
+    const tenantId = await resolveTenant();
+    if (tenantId instanceof NextResponse) return tenantId;
     const body = await req.json();
     const {
       clientId, walkInName, staffId, items, subtotal, taxAmount,
@@ -96,6 +98,7 @@ export async function POST(req: NextRequest) {
             quantity: item.quantity,
             rate: item.rate,
             discount: item.discount || 0,
+            taxableAmt: item.taxableAmt || item.rate * item.quantity,
             cgst: item.cgst || 0,
             sgst: item.sgst || 0,
             total: item.total || item.rate * item.quantity,

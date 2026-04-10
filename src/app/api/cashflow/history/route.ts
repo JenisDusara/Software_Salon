@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getTenantId } from "@/lib/tenant";
+import { resolveTenant } from "@/lib/tenant";
 
 export async function GET(req: NextRequest) {
   try {
-    const tenantId = getTenantId();
+    const tenantId = await resolveTenant();
+    if (tenantId instanceof NextResponse) return tenantId;
     const days = parseInt(new URL(req.url).searchParams.get("days") ?? "7", 10);
     const now = new Date();
 

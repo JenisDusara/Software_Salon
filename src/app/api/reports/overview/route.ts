@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getTenantId } from "@/lib/tenant";
+import { resolveTenant } from "@/lib/tenant";
 
 function getPeriodRange(period: string, now: Date) {
   if (period === "last_month") {
@@ -39,7 +39,8 @@ function getPeriodRange(period: string, now: Date) {
 
 export async function GET(req: NextRequest) {
   try {
-    const tenantId = getTenantId();
+    const tenantId = await resolveTenant();
+    if (tenantId instanceof NextResponse) return tenantId;
     const period = new URL(req.url).searchParams.get("period") ?? "this_month";
     const now = new Date();
     const { start, end, prevStart, prevEnd } = getPeriodRange(period, now);

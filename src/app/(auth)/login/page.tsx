@@ -1,12 +1,13 @@
 "use client";
 import { useState } from "react";
+import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Scissors } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@salonsoft.in");
-  const [password, setPassword] = useState("password123");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -15,9 +16,28 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    // Demo: just redirect to dashboard
-    await new Promise((r) => setTimeout(r, 800));
-    router.push("/dashboard");
+
+    const result = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      setError("Invalid email or password. Please try again.");
+      setLoading(false);
+    } else {
+      // Get session to check role
+      const { getSession } = await import("next-auth/react");
+      const session = await getSession();
+      const role = (session?.user as any)?.role;
+      if (role === "SUPER_ADMIN") {
+        router.push("/super-admin");
+      } else {
+        router.push("/dashboard");
+      }
+      router.refresh();
+    }
   };
 
   return (
@@ -41,20 +61,14 @@ export default function LoginPage() {
           <p className="text-[#A8A29E] text-lg mb-10">
             Billing, CRM, GST compliance, staff management and WhatsApp — all in one place.
           </p>
-
-          {/* Feature pills */}
           <div className="flex flex-wrap gap-3">
             {["₹ GST Invoicing", "📱 WhatsApp", "📊 P&L Reports", "🗓️ Appointments", "👥 Client CRM"].map((f) => (
-              <span key={f} className="px-4 py-2 bg-[#292524] text-[#A8A29E] rounded-full text-sm">
-                {f}
-              </span>
+              <span key={f} className="px-4 py-2 bg-[#292524] text-[#A8A29E] rounded-full text-sm">{f}</span>
             ))}
           </div>
         </div>
 
-        <p className="text-[#78716C] text-sm">
-          Trusted by 500+ salons across India
-        </p>
+        <p className="text-[#78716C] text-sm">Trusted by salons across India</p>
       </div>
 
       {/* Right login panel */}
@@ -76,16 +90,14 @@ export default function LoginPage() {
           <p className="text-[#78716C] mb-8">Sign in to your salon dashboard</p>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-sm">
               {error}
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-[#1C1917] mb-1.5">
-                Email address
-              </label>
+              <label className="block text-sm font-medium text-[#1C1917] mb-1.5">Email address</label>
               <input
                 type="email"
                 value={email}
@@ -93,13 +105,12 @@ export default function LoginPage() {
                 className="w-full px-4 py-3 border border-[#E7E5E4] rounded-xl bg-white text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-[#D97706] focus:border-transparent transition"
                 placeholder="you@yoursalon.in"
                 required
+                autoFocus
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[#1C1917] mb-1.5">
-                Password
-              </label>
+              <label className="block text-sm font-medium text-[#1C1917] mb-1.5">Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
@@ -117,11 +128,6 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <div className="flex justify-end mt-1">
-                <button type="button" className="text-sm text-[#D97706] hover:underline">
-                  Forgot password?
-                </button>
-              </div>
             </div>
 
             <button
@@ -134,19 +140,11 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Demo credentials note */}
           <div className="mt-6 p-4 bg-[#FEF3C7] border border-amber-200 rounded-xl">
-            <p className="text-sm font-medium text-[#92400E] mb-1">Demo Credentials</p>
-            <p className="text-xs text-[#92400E]">Email: admin@salonsoft.in</p>
-            <p className="text-xs text-[#92400E]">Password: password123</p>
+            <p className="text-sm font-medium text-[#92400E] mb-1">Login Credentials</p>
+            <p className="text-xs text-[#92400E]">Email: {process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "Set ADMIN_EMAIL in .env"}</p>
+            <p className="text-xs text-[#92400E]">Password: Set in .env as ADMIN_PASSWORD</p>
           </div>
-
-          <p className="text-center text-sm text-[#78716C] mt-6">
-            Don&apos;t have an account?{" "}
-            <a href="#" className="text-[#D97706] font-medium hover:underline">
-              Start free trial
-            </a>
-          </p>
         </div>
       </div>
     </div>

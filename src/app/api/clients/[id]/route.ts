@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getTenantId } from "@/lib/tenant";
+import { resolveTenant } from "@/lib/tenant";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const tenantId = getTenantId();
+    const tenantId = await resolveTenant();
+    if (tenantId instanceof NextResponse) return tenantId;
     const client = await prisma.client.findFirst({
       where: { id, tenantId },
       include: {
@@ -26,7 +27,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const tenantId = getTenantId();
+    const tenantId = await resolveTenant();
+    if (tenantId instanceof NextResponse) return tenantId;
     const body = await req.json();
     const client = await prisma.client.updateMany({
       where: { id, tenantId },
@@ -46,7 +48,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const tenantId = getTenantId();
+    const tenantId = await resolveTenant();
+    if (tenantId instanceof NextResponse) return tenantId;
     await prisma.client.deleteMany({ where: { id, tenantId } });
     return NextResponse.json({ success: true });
   } catch (e: any) {

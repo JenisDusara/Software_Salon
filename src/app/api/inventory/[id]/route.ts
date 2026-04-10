@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getTenantId } from "@/lib/tenant";
+import { resolveTenant } from "@/lib/tenant";
 
 export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const tenantId = getTenantId();
+    const tenantId = await resolveTenant();
+    if (tenantId instanceof NextResponse) return tenantId;
     const body = await req.json();
     await prisma.product.updateMany({
       where: { id, tenantId },
@@ -29,7 +30,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const tenantId = getTenantId();
+    const tenantId = await resolveTenant();
+    if (tenantId instanceof NextResponse) return tenantId;
     const body = await req.json();
     // For stock adjustments: { delta: number }
     const product = await prisma.product.findFirst({ where: { id, tenantId } });
@@ -45,7 +47,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const tenantId = getTenantId();
+    const tenantId = await resolveTenant();
+    if (tenantId instanceof NextResponse) return tenantId;
     await prisma.product.updateMany({ where: { id, tenantId }, data: { isActive: false } });
     return NextResponse.json({ success: true });
   } catch (e: any) {

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getTenantId } from "@/lib/tenant";
+import { resolveTenant } from "@/lib/tenant";
 
 export async function GET() {
   try {
-    const tenantId = getTenantId();
+    const tenantId = await resolveTenant();
+    if (tenantId instanceof NextResponse) return tenantId;
     const expenses = await prisma.expense.findMany({
       where: { tenantId },
       orderBy: { date: "desc" },
@@ -17,7 +18,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const tenantId = getTenantId();
+    const tenantId = await resolveTenant();
+    if (tenantId instanceof NextResponse) return tenantId;
     const body = await req.json();
     const { categoryId, categoryName, description, amount, date, paymentMethod, vendorName, isRecurring, recurringFreq } = body;
 

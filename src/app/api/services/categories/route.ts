@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { getTenantId } from "@/lib/tenant";
+import { resolveTenant } from "@/lib/tenant";
 
 export async function GET() {
   try {
-    const tenantId = getTenantId();
+    const tenantId = await resolveTenant();
+    if (tenantId instanceof NextResponse) return tenantId;
     const categories = await prisma.serviceCategory.findMany({
       where: { tenantId },
       orderBy: { order: "asc" },
@@ -17,7 +18,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const tenantId = getTenantId();
+    const tenantId = await resolveTenant();
+    if (tenantId instanceof NextResponse) return tenantId;
     const body = await req.json();
     const { name } = body;
 

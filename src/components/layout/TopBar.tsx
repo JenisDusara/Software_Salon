@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Menu, Bell } from "lucide-react";
+import { Menu, Bell, LogOut } from "lucide-react";
+import { signOut } from "next-auth/react";
 import { useAppStore } from "@/store/useAppStore";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/utils";
@@ -66,19 +67,25 @@ export default function TopBar({ onMenuClick, title }: TopBarProps) {
         {pageTitle}
       </h1>
 
-      {/* Right: Bell + Avatar */}
-      <div className="flex items-center gap-2">
+      {/* Right: Bell + Avatar + Logout */}
+      <div className="flex items-center gap-1">
         <button
           className="relative flex items-center justify-center w-9 h-9 rounded-lg text-stone-600 hover:bg-stone-100 transition-colors duration-150"
           aria-label="Notifications"
         >
           <Bell size={20} />
-          {/* Notification dot */}
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#D97706] rounded-full ring-2 ring-white" />
         </button>
         <div className="flex items-center justify-center w-9 h-9 rounded-full bg-[#D97706]">
           <span className="text-white text-xs font-semibold">{initials}</span>
         </div>
+        <button
+          onClick={() => signOut({ callbackUrl: "/login" })}
+          className="flex items-center justify-center w-9 h-9 rounded-lg text-stone-500 hover:text-red-500 hover:bg-red-50 transition-colors duration-150"
+          aria-label="Logout"
+        >
+          <LogOut size={18} />
+        </button>
       </div>
     </header>
   );

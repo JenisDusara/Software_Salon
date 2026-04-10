@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import Providers from "./providers";
 
 export const metadata: Metadata = {
   title: "SalonSoft Pro — Salon Management System",
@@ -23,7 +24,7 @@ export default function RootLayout({
         />
       </head>
       <body className={cn("antialiased min-h-screen bg-background text-foreground")}>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

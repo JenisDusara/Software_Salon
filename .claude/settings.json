@@ -5,12 +5,17 @@
       "Bash(npm run:*)",
       "Read(//c/Users/Jenish/.claude/projects/c--Users-Jenish-Desktop-software-salon/a2e154ac-d9b5-4ffe-8717-fd26739b58b7/tool-results/**)",
       "Bash(npx next:*)",
-      "Read(//c/Users/Jenish/AppData/Local/Temp/claude/c--Users-Jenish-Desktop-software-salon/f788417f-5166-4b90-ab6c-f7fbaafb12dc/tasks/**)"
+      "Read(//c/Users/Jenish/AppData/Local/Temp/claude/c--Users-Jenish-Desktop-software-salon/f788417f-5166-4b90-ab6c-f7fbaafb12dc/tasks/**)",
+      "Bash(mkdir -p \"c:\\\\Users\\\\Jenish\\\\Desktop\\\\software-salon\\\\src\\\\app\\\\super-admin\\\\tenant\\\\[id]\")",
+      "Bash(mkdir -p \"c:\\\\Users\\\\Jenish\\\\Desktop\\\\software-salon\\\\src\\\\app\\\\api\\\\super-admin\\\\tenants\\\\[id]\")",
+      "Bash(powershell -Command \"Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue\")",
+      "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 1; Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue; Remove-Item -Recurse -Force 'node_modules/.cache' -ErrorAction SilentlyContinue\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\(dashboard)\\clients",
       "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\api\\clients",
-      "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\book"
+      "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\book",
+      "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\api\\auth"
     ]
   }
 }

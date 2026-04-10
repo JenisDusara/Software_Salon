@@ -19,8 +19,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
+  LogOut,
   LucideIcon,
 } from "lucide-react";
+import { signOut } from "next-auth/react";
 import { useAppStore } from "@/store/useAppStore";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/utils";
@@ -234,12 +236,19 @@ export default function Sidebar() {
             <span className="text-white text-xs font-semibold">{initials}</span>
           </div>
           {!sidebarCollapsed && (
-            <div className="flex flex-col min-w-0">
-              <span className="text-stone-200 text-sm font-medium truncate">
-                {userName}
-              </span>
-              <span className="text-stone-500 text-xs truncate">{userRole}</span>
-            </div>
+            <>
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-stone-200 text-sm font-medium truncate">{userName}</span>
+                <span className="text-stone-500 text-xs truncate">{userRole}</span>
+              </div>
+              <button
+                onClick={() => signOut({ callbackUrl: "/login" })}
+                className="p-1.5 text-stone-500 hover:text-red-400 hover:bg-stone-800 rounded-lg transition-colors shrink-0"
+                title="Logout"
+              >
+                <LogOut size={15} />
+              </button>
+            </>
           )}
         </div>
       </div>

@@ -18,12 +18,10 @@ import {
   Package,
   Star,
   CheckCircle2,
-  Download,
   MessageCircle,
   Printer,
   Clock,
   Tag,
-  Percent,
   Receipt,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
@@ -101,6 +99,25 @@ export default function BillingPage() {
   const [useLoyalty, setUseLoyalty] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const invoiceRef = useRef<HTMLDivElement>(null);
+  type InvoiceSnapshot = {
+    invoiceNumber: string;
+    date: Date;
+    clientName: string;
+    clientPhone: string;
+    staffName: string;
+    paymentMethod: string;
+    items: { name: string; qty: number; rate: number; discount: number; gstRate: number; taxable: number; cgst: number; sgst: number; total: number }[];
+    subtotal: number;
+    overallDiscount: number;
+    loyaltyDiscount: number;
+    taxableAmount: number;
+    cgst: number;
+    sgst: number;
+    tips: number;
+    grandTotal: number;
+  };
+  const [invoiceSnap, setInvoiceSnap] = useState<InvoiceSnapshot | null>(null);
 
   // ─── Client selector state ─────────────────────────────────────────────────
   const [clientSearch, setClientSearch] = useState("");
@@ -266,6 +283,31 @@ export default function BillingPage() {
       if (!res.ok) throw new Error(data.error || "Failed to save invoice");
       setInvoiceNumber(data.invoiceNumber);
       updateActiveBill({ paymentMethod: paymentMethod as typeof activeBill.paymentMethod });
+      const snap: InvoiceSnapshot = {
+        invoiceNumber: data.invoiceNumber,
+        date: new Date(),
+        clientName: activeBill.clientName ?? activeBill.walkInName ?? "Walk-in",
+        clientPhone: selectedClient?.phone ?? "",
+        staffName: staffList.find((s) => s.id === activeBill.staffId)?.name ?? "",
+        paymentMethod,
+        items: items.map((item) => {
+          const gross = item.rate * item.quantity;
+          const discAmt = item.discountType === "percent" ? gross * (item.discount / 100) : (item.discount || 0);
+          const taxable = gross - discAmt;
+          const gstRate = item.gstRate || 18;
+          const halfGst = taxable * (gstRate / 2 / 100);
+          return { name: item.name, qty: item.quantity, rate: item.rate, discount: discAmt, gstRate, taxable, cgst: halfGst, sgst: halfGst, total: taxable + halfGst * 2 };
+        }),
+        subtotal: totals.subtotal,
+        overallDiscount: totals.subtotal - totals.afterOverallDiscount,
+        loyaltyDiscount: totals.loyaltyDiscount,
+        taxableAmount: totals.taxableAfterLoyalty,
+        cgst: totals.cgst,
+        sgst: totals.sgst,
+        tips: tips || 0,
+        grandTotal: totals.total,
+      };
+      setInvoiceSnap(snap);
       setShowSuccess(true);
     } catch (err: any) {
       toast.error(err.message || "Failed to create invoice");
@@ -1126,78 +1168,216 @@ export default function BillingPage() {
         {mobileTab === "cart" ? renderCartLeft() : renderPaymentPanel()}
       </div>
 
-      {/* ─── Success Modal ────────────────────────────────────────────────── */}
-      {showSuccess && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={() => setShowSuccess(false)}
-          />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 z-10">
-            <div className="flex flex-col items-center text-center mb-5">
-              <div className="w-14 h-14 bg-emerald-100 rounded-full flex items-center justify-center mb-3">
-                <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+      {/* ─── Invoice Receipt Modal ───────────────────────────────────────── */}
+      {showSuccess && invoiceSnap && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 print:p-0 print:fixed print:inset-0">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm print:hidden" />
+          <div className="relative w-full max-w-md z-10 flex flex-col max-h-[95vh]">
+
+            {/* Action bar — hidden on print */}
+            <div className="print:hidden flex items-center justify-between mb-2 px-1">
+              <div className="flex items-center gap-1.5">
+                <div className="w-7 h-7 bg-emerald-500 rounded-full flex items-center justify-center">
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                </div>
+                <span className="text-white font-semibold text-sm">Invoice Created!</span>
               </div>
-              <h2 className="text-xl font-bold text-stone-900">Invoice Created!</h2>
-              <p className="text-sm text-stone-500 mt-1">
-                {invoiceNumber}
-              </p>
-              {(activeBill.clientName || activeBill.walkInName) && (
-                <p className="text-sm font-medium text-stone-700 mt-0.5">
-                  {activeBill.clientName ?? activeBill.walkInName}
-                </p>
-              )}
-              <p className="text-2xl font-bold text-amber-600 mt-2">
-                {formatINR(totals.total)}
-              </p>
-              <p className="text-xs text-stone-400 mt-1">
-                via {paymentMethod}
-              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => {
+                    if (invoiceRef.current) {
+                      const printContents = invoiceRef.current.innerHTML;
+                      const win = window.open("", "_blank", "width=420,height=700");
+                      if (win) {
+                        win.document.write(`<html><head><title>${invoiceSnap.invoiceNumber}</title><style>
+                          *{margin:0;padding:0;box-sizing:border-box}body{font-family:sans-serif;font-size:12px;color:#1c1917;padding:16px}
+                          .inv-header{text-align:center;border-bottom:2px solid #1c1917;padding-bottom:10px;margin-bottom:10px}
+                          .inv-title{font-size:18px;font-weight:700}.inv-sub{font-size:11px;color:#78716c}
+                          .inv-meta{display:flex;justify-content:space-between;margin-bottom:10px;font-size:11px}
+                          table{width:100%;border-collapse:collapse;font-size:11px;margin:8px 0}
+                          th{background:#f5f5f4;padding:5px 6px;text-align:left;font-weight:600;border:1px solid #e7e5e4}
+                          td{padding:5px 6px;border:1px solid #e7e5e4}
+                          .text-right{text-align:right}.text-center{text-align:center}
+                          .totals{margin-top:8px;font-size:12px}
+                          .totals-row{display:flex;justify-content:space-between;padding:3px 0}
+                          .grand{font-size:15px;font-weight:700;border-top:2px solid #1c1917;margin-top:6px;padding-top:6px}
+                          .badge{display:inline-block;padding:2px 8px;border-radius:12px;font-size:10px;font-weight:600;background:#d97706;color:white}
+                          .footer{text-align:center;margin-top:14px;font-size:11px;color:#78716c;border-top:1px dashed #e7e5e4;padding-top:10px}
+                        </style></head><body>${printContents}</body></html>`);
+                        win.document.close();
+                        win.focus();
+                        setTimeout(() => { win.print(); win.close(); }, 400);
+                      }
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/90 hover:bg-white text-stone-700 rounded-lg text-xs font-medium transition"
+                >
+                  <Printer className="w-3.5 h-3.5" /> Print
+                </button>
+                <button
+                  onClick={shareWhatsApp}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-medium transition"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                </button>
+                <button
+                  onClick={() => {
+                    setShowSuccess(false);
+                    clearBill();
+                    setPaymentMethod("CASH");
+                    setCashReceived("");
+                    setUpiMarked(false);
+                    setCardLast4("");
+                    setSplitAmount1("");
+                    setSplitAmount2("");
+                    setUseLoyalty(false);
+                    setIsWalkIn(false);
+                    setWalkInName("");
+                    setClientSearch("");
+                  }}
+                  className="p-1.5 bg-white/20 hover:bg-white/30 text-white rounded-lg transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 mb-4">
-              <button
-                onClick={() => toast("PDF download coming soon", { icon: "📥" })}
-                className="flex flex-col items-center gap-1.5 p-3 border border-[#E7E5E4] rounded-xl hover:bg-stone-50 transition-colors"
-              >
-                <Download className="w-5 h-5 text-stone-500" />
-                <span className="text-xs text-stone-600">Download</span>
-              </button>
-              <button
-                onClick={shareWhatsApp}
-                className="flex flex-col items-center gap-1.5 p-3 border border-emerald-200 rounded-xl hover:bg-emerald-50 transition-colors"
-              >
-                <MessageCircle className="w-5 h-5 text-emerald-600" />
-                <span className="text-xs text-emerald-700">WhatsApp</span>
-              </button>
-              <button
-                onClick={() => window.print()}
-                className="flex flex-col items-center gap-1.5 p-3 border border-[#E7E5E4] rounded-xl hover:bg-stone-50 transition-colors"
-              >
-                <Printer className="w-5 h-5 text-stone-500" />
-                <span className="text-xs text-stone-600">Print</span>
-              </button>
+            {/* Invoice receipt */}
+            <div ref={invoiceRef} className="bg-white rounded-2xl shadow-2xl overflow-y-auto print:rounded-none print:shadow-none">
+              {/* Header */}
+              <div className="text-center px-6 pt-6 pb-4 border-b border-dashed border-stone-200">
+                <div className="w-10 h-10 bg-stone-900 rounded-xl flex items-center justify-center mx-auto mb-2">
+                  <span className="text-white font-bold text-sm">S</span>
+                </div>
+                <p className="font-bold text-stone-900 text-base">SalonSoft Pro</p>
+                <p className="text-xs text-stone-500 mt-0.5">Tax Invoice</p>
+              </div>
+
+              {/* Invoice meta */}
+              <div className="px-6 py-3 flex justify-between text-xs border-b border-stone-100">
+                <div>
+                  <p className="text-stone-400 mb-0.5">Invoice No.</p>
+                  <p className="font-semibold text-stone-900">{invoiceSnap.invoiceNumber}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-stone-400 mb-0.5">Date</p>
+                  <p className="font-semibold text-stone-900">
+                    {invoiceSnap.date.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Client + Staff */}
+              <div className="px-6 py-3 flex justify-between text-xs border-b border-stone-100">
+                <div>
+                  <p className="text-stone-400 mb-0.5">Bill To</p>
+                  <p className="font-semibold text-stone-900">{invoiceSnap.clientName}</p>
+                  {invoiceSnap.clientPhone && <p className="text-stone-500">{invoiceSnap.clientPhone}</p>}
+                </div>
+                {invoiceSnap.staffName && (
+                  <div className="text-right">
+                    <p className="text-stone-400 mb-0.5">Served By</p>
+                    <p className="font-semibold text-stone-900">{invoiceSnap.staffName}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Items */}
+              <div className="px-6 py-3 border-b border-stone-100">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-stone-200">
+                      <th className="text-left text-stone-400 font-medium pb-2">Service</th>
+                      <th className="text-center text-stone-400 font-medium pb-2">Qty</th>
+                      <th className="text-right text-stone-400 font-medium pb-2">Rate</th>
+                      <th className="text-right text-stone-400 font-medium pb-2">Disc</th>
+                      <th className="text-right text-stone-400 font-medium pb-2">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoiceSnap.items.map((item, i) => (
+                      <tr key={i} className="border-b border-stone-50">
+                        <td className="py-2 text-stone-800 font-medium">{item.name}</td>
+                        <td className="py-2 text-center text-stone-600">{item.qty}</td>
+                        <td className="py-2 text-right text-stone-600">{formatINR(item.rate)}</td>
+                        <td className="py-2 text-right text-red-500">{item.discount > 0 ? `-${formatINR(item.discount)}` : "—"}</td>
+                        <td className="py-2 text-right font-semibold text-stone-900">{formatINR(item.taxable)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Totals */}
+              <div className="px-6 py-3 space-y-1.5 text-xs border-b border-stone-100">
+                <div className="flex justify-between text-stone-600">
+                  <span>Subtotal</span><span>{formatINR(invoiceSnap.subtotal)}</span>
+                </div>
+                {invoiceSnap.overallDiscount > 0 && (
+                  <div className="flex justify-between text-red-500">
+                    <span>Discount</span><span>-{formatINR(invoiceSnap.overallDiscount)}</span>
+                  </div>
+                )}
+                {invoiceSnap.loyaltyDiscount > 0 && (
+                  <div className="flex justify-between text-amber-600">
+                    <span>Loyalty Redemption</span><span>-{formatINR(invoiceSnap.loyaltyDiscount)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between text-stone-600">
+                  <span>Taxable Amount</span><span>{formatINR(invoiceSnap.taxableAmount)}</span>
+                </div>
+                <div className="flex justify-between text-stone-400">
+                  <span>CGST (9%)</span><span>{formatINR(invoiceSnap.cgst)}</span>
+                </div>
+                <div className="flex justify-between text-stone-400">
+                  <span>SGST (9%)</span><span>{formatINR(invoiceSnap.sgst)}</span>
+                </div>
+                {invoiceSnap.tips > 0 && (
+                  <div className="flex justify-between text-stone-600">
+                    <span>Tips</span><span>{formatINR(invoiceSnap.tips)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-2 border-t border-stone-200">
+                  <span className="font-bold text-stone-900 text-sm">Grand Total</span>
+                  <span className="font-bold text-amber-600 text-lg">{formatINR(invoiceSnap.grandTotal)}</span>
+                </div>
+              </div>
+
+              {/* Payment + footer */}
+              <div className="px-6 py-4 text-center">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-stone-900 text-white rounded-full text-xs font-medium">
+                  {invoiceSnap.paymentMethod === "CASH" && <Banknote className="w-3.5 h-3.5" />}
+                  {invoiceSnap.paymentMethod === "UPI" && <Smartphone className="w-3.5 h-3.5" />}
+                  {invoiceSnap.paymentMethod === "CARD" && <CreditCard className="w-3.5 h-3.5" />}
+                  Paid via {invoiceSnap.paymentMethod}
+                </span>
+                <p className="text-xs text-stone-400 mt-3">Thank you for visiting! ✂️</p>
+              </div>
+
+              {/* New Bill button */}
+              <div className="px-6 pb-5 print:hidden">
+                <button
+                  onClick={() => {
+                    setShowSuccess(false);
+                    clearBill();
+                    setPaymentMethod("CASH");
+                    setCashReceived("");
+                    setUpiMarked(false);
+                    setCardLast4("");
+                    setSplitAmount1("");
+                    setSplitAmount2("");
+                    setUseLoyalty(false);
+                    setIsWalkIn(false);
+                    setWalkInName("");
+                    setClientSearch("");
+                  }}
+                  className="w-full bg-stone-900 hover:bg-stone-800 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
+                >
+                  New Bill
+                </button>
+              </div>
             </div>
 
-            <button
-              onClick={() => {
-                setShowSuccess(false);
-                clearBill();
-                setPaymentMethod("CASH");
-                setCashReceived("");
-                setUpiMarked(false);
-                setCardLast4("");
-                setSplitAmount1("");
-                setSplitAmount2("");
-                setUseLoyalty(false);
-                setIsWalkIn(false);
-                setWalkInName("");
-                setClientSearch("");
-              }}
-              className="w-full bg-stone-900 hover:bg-stone-800 text-white font-semibold py-3 rounded-xl transition-colors"
-            >
-              Done
-            </button>
           </div>
         </div>
       )}
