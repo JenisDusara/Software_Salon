@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
         phone,
         role: role ?? "STAFF",
         commissionRate: commissionRate ?? 0,
-        branchId: branchId ?? null,
+        branchId: branchId || null,
         isActive: true,
       },
     });

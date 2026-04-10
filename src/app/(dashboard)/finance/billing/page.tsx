@@ -234,15 +234,24 @@ export default function BillingPage() {
           clientId: activeBill.clientId || null,
           walkInName: activeBill.walkInName || null,
           staffId: activeBill.staffId || null,
-          items: items.map((item) => ({
-            name: item.name,
-            quantity: item.quantity,
-            rate: item.rate,
-            discount: item.discount || 0,
-            cgst: (item.rate * item.quantity * 0.09),
-            sgst: (item.rate * item.quantity * 0.09),
-            total: item.rate * item.quantity - (item.discountType === "percent" ? item.rate * item.quantity * (item.discount / 100) : item.discount),
-          })),
+          items: items.map((item) => {
+            const gross = item.rate * item.quantity;
+            const discAmt = item.discountType === "percent"
+              ? gross * (item.discount / 100)
+              : (item.discount || 0);
+            const taxable = gross - discAmt;
+            const gstRate = item.gstRate || 18;
+            const halfGst = taxable * (gstRate / 2 / 100);
+            return {
+              name: item.name,
+              quantity: item.quantity,
+              rate: item.rate,
+              discount: discAmt,
+              cgst: halfGst,
+              sgst: halfGst,
+              total: taxable + halfGst * 2,
+            };
+          }),
           subtotal: totals.subtotal,
           taxAmount: totals.gstAmount,
           discount: totals.subtotal - totals.afterOverallDiscount + totals.loyaltyDiscount,

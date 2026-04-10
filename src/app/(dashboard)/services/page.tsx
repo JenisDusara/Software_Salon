@@ -20,6 +20,9 @@ export default function ServicesPage() {
   const [form, setForm] = useState<ServiceForm>(DEFAULT_FORM);
   const [errors, setErrors] = useState<Partial<ServiceForm>>({});
   const [saving, setSaving] = useState(false);
+  const [showCatInput, setShowCatInput] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [savingCat, setSavingCat] = useState(false);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -85,6 +88,25 @@ export default function ServicesPage() {
     finally { setSaving(false); }
   }
 
+  async function handleAddCategory(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newCatName.trim()) return;
+    setSavingCat(true);
+    try {
+      const res = await fetch("/api/services/categories", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newCatName.trim() }),
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+      toast.success("Category added!");
+      setNewCatName("");
+      setShowCatInput(false);
+      fetchAll();
+    } catch (err: any) { toast.error(err.message); }
+    finally { setSavingCat(false); }
+  }
+
   async function handleDelete(id: string) {
     try {
       await fetch(`/api/services/${id}`, { method: "DELETE" });
@@ -112,7 +134,7 @@ export default function ServicesPage() {
           className="w-full pl-10 pr-4 py-2.5 border border-[#E7E5E4] rounded-xl bg-white text-sm placeholder-[#A8A29E] focus:outline-none focus:ring-2 focus:ring-[#D97706]" />
       </div>
 
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
         <button onClick={() => setActiveCategory("all")}
           className={`px-4 py-2 rounded-full text-sm font-medium border transition ${activeCategory === "all" ? "bg-[#1C1917] text-white border-[#1C1917]" : "bg-white text-[#78716C] border-[#E7E5E4] hover:border-[#D97706]"}`}>
           All ({services.length})
@@ -126,6 +148,29 @@ export default function ServicesPage() {
             </button>
           );
         })}
+        {showCatInput ? (
+          <form onSubmit={handleAddCategory} className="flex items-center gap-1.5">
+            <input
+              autoFocus
+              type="text"
+              value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+              placeholder="Category name"
+              className="px-3 py-1.5 border border-[#D97706] rounded-full text-sm focus:outline-none w-36"
+            />
+            <button type="submit" disabled={savingCat}
+              className="px-3 py-1.5 bg-[#D97706] text-white rounded-full text-xs font-medium hover:bg-amber-600 transition disabled:opacity-50">
+              {savingCat ? "..." : "Add"}
+            </button>
+            <button type="button" onClick={() => { setShowCatInput(false); setNewCatName(""); }}
+              className="p-1.5 text-[#78716C] hover:text-[#1C1917]"><X className="w-4 h-4" /></button>
+          </form>
+        ) : (
+          <button onClick={() => setShowCatInput(true)}
+            className="px-3 py-2 rounded-full text-xs font-medium border border-dashed border-[#D97706] text-[#D97706] hover:bg-amber-50 transition flex items-center gap-1">
+            <Plus className="w-3 h-3" /> Add Category
+          </button>
+        )}
       </div>
 
       {loading ? (

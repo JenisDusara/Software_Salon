@@ -63,8 +63,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { clientId, walkInName, staffId, serviceId, date, time, notes } = body;
 
-    if (!staffId || !serviceId) {
-      return NextResponse.json({ error: "Staff and service required" }, { status: 400 });
+    if (!serviceId) {
+      return NextResponse.json({ error: "Service required" }, { status: 400 });
     }
 
     const service = await prisma.service.findFirst({ where: { id: serviceId, tenantId } });
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
         branchId: branch.id,
         clientId: clientId || null,
         walkInName: !clientId ? (walkInName || "Walk-in") : null,
-        staffId,
+        staffId: staffId || null,
         date: apptDate,
         startTime,
         endTime,
