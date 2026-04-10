@@ -60,6 +60,7 @@ export default function ServicesPage() {
   function validate() {
     const e: Partial<ServiceForm> = {};
     if (!form.name.trim()) e.name = "Service name required";
+    if (!form.categoryId) e.categoryId = "Select a category";
     const p = Number(form.price);
     if (!form.price || isNaN(p) || p <= 0) e.price = "Enter valid price";
     const d = Number(form.duration);
@@ -123,7 +124,9 @@ export default function ServicesPage() {
           <h1 className="text-2xl font-bold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>Services</h1>
           <p className="text-[#78716C] text-sm mt-0.5">{services.length} services across {categories.length} categories</p>
         </div>
-        <button onClick={openAdd} className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-[#D97706] text-white rounded-xl font-medium hover:bg-amber-600 transition text-sm shrink-0">
+        <button
+          onClick={categories.length === 0 ? () => toast.error("Add a category first") : openAdd}
+          className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-[#D97706] text-white rounded-xl font-medium hover:bg-amber-600 transition text-sm shrink-0">
           <Plus className="w-4 h-4" /><span className="hidden sm:inline">Add Service</span>
         </button>
       </div>
@@ -220,15 +223,22 @@ export default function ServicesPage() {
                 {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#1C1917] mb-2">Category</label>
-                <div className="flex flex-wrap gap-2">
-                  {categories.map((cat) => (
-                    <button key={cat.id} type="button" onClick={() => setForm((f) => ({ ...f, categoryId: cat.id }))}
-                      className={`px-3 py-1.5 rounded-full border text-xs font-medium transition ${form.categoryId === cat.id ? "bg-[#1C1917] text-white border-[#1C1917]" : "border-[#E7E5E4] text-[#78716C] hover:border-[#D97706]"}`}>
-                      {cat.name}
-                    </button>
-                  ))}
-                </div>
+                <label className="block text-sm font-medium text-[#1C1917] mb-2">Category <span className="text-red-500">*</span></label>
+                {categories.length === 0 ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-sm text-amber-700">
+                    No categories yet. Close this and click <strong>"+ Add Category"</strong> first.
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {categories.map((cat) => (
+                      <button key={cat.id} type="button" onClick={() => setForm((f) => ({ ...f, categoryId: cat.id }))}
+                        className={`px-3 py-1.5 rounded-full border text-xs font-medium transition ${form.categoryId === cat.id ? "bg-[#1C1917] text-white border-[#1C1917]" : "border-[#E7E5E4] text-[#78716C] hover:border-[#D97706]"}`}>
+                        {cat.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {(errors as any).categoryId && <p className="text-red-500 text-xs mt-1">{(errors as any).categoryId}</p>}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
