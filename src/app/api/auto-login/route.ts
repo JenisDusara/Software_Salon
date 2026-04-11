@@ -11,7 +11,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // Mint a JWT token identical to what NextAuth would create after signIn
+  // NextAuth uses __Secure- prefix on HTTPS (production), plain on HTTP (dev)
+  const isSecure =
+    process.env.NODE_ENV === "production" ||
+    (process.env.NEXTAUTH_URL ?? "").startsWith("https://");
+
+  const cookieName = isSecure
+    ? "__Secure-next-auth.session-token"
+    : "next-auth.session-token";
+
+  // Mint a JWT token — must pass salt=cookieName so getToken() can decrypt it.
+  // NextAuth v4.22+ uses HKDF key derivation with the cookie name as salt;
+  // without this, getToken() in middleware gets null and causes infinite redirect.
   const token = await encode({
     token: {
       sub: "super-admin",
@@ -24,16 +35,8 @@ export async function GET(req: NextRequest) {
       exp: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days
     },
     secret,
+    salt: cookieName,
   });
-
-  // NextAuth uses __Secure- prefix on HTTPS (production), plain on HTTP (dev)
-  const isSecure =
-    process.env.NODE_ENV === "production" ||
-    (process.env.NEXTAUTH_URL ?? "").startsWith("https://");
-
-  const cookieName = isSecure
-    ? "__Secure-next-auth.session-token"
-    : "next-auth.session-token";
 
   const response = NextResponse.redirect(new URL("/super-admin", req.url));
   response.cookies.set(cookieName, token, {
