@@ -20,9 +20,8 @@ export async function GET(req: NextRequest) {
     ? "__Secure-next-auth.session-token"
     : "next-auth.session-token";
 
-  // Mint a JWT token — must pass salt=cookieName so getToken() can decrypt it.
-  // NextAuth v4.22+ uses HKDF key derivation with the cookie name as salt;
-  // without this, getToken() in middleware gets null and causes infinite redirect.
+  // Mint a JWT token. Do NOT pass salt — getToken() in middleware calls decode()
+  // with no salt (salt=""), so encode() must also use no salt for keys to match.
   const token = await encode({
     token: {
       sub: "super-admin",
@@ -35,7 +34,6 @@ export async function GET(req: NextRequest) {
       exp: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // 30 days
     },
     secret,
-    salt: cookieName,
   });
 
   const response = NextResponse.redirect(new URL("/super-admin", req.url));
