@@ -11,10 +11,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // NextAuth uses __Secure- prefix on HTTPS (production), plain on HTTP (dev)
-  const isSecure =
-    process.env.NODE_ENV === "production" ||
-    (process.env.NEXTAUTH_URL ?? "").startsWith("https://");
+  // Mirror getToken()'s own secureCookie logic exactly:
+  // if NEXTAUTH_URL is set, use it; otherwise fall back to VERCEL env var.
+  // This ensures the cookie name we set matches the one getToken() looks for.
+  const isSecure = process.env.NEXTAUTH_URL
+    ? process.env.NEXTAUTH_URL.startsWith("https://")
+    : !!process.env.VERCEL;
 
   const cookieName = isSecure
     ? "__Secure-next-auth.session-token"
