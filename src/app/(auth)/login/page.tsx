@@ -111,6 +111,7 @@ export default function LoginPage() {
                 placeholder="you@yoursalon.in"
                 required
                 autoFocus
+                autoComplete="email"
               />
             </div>
 
@@ -124,6 +125,7 @@ export default function LoginPage() {
                   className="w-full px-4 py-3 border border-[#E7E5E4] rounded-xl bg-white text-[#1C1917] focus:outline-none focus:ring-2 focus:ring-[#D97706] focus:border-transparent transition pr-12"
                   placeholder="••••••••"
                   required
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
