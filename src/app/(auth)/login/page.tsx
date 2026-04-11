@@ -1,11 +1,9 @@
 "use client";
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Scissors } from "lucide-react";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -17,26 +15,33 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
+    try {
+      const result = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
 
-    if (result?.error) {
-      setError("Invalid email or password. Please try again.");
-      setLoading(false);
-    } else {
-      // Get session to check role
-      const { getSession } = await import("next-auth/react");
-      const session = await getSession();
-      const role = (session?.user as any)?.role;
-      if (role === "SUPER_ADMIN") {
-        router.push("/super-admin");
-      } else {
-        router.push("/dashboard");
+      if (result?.error) {
+        setError("Invalid email or password. Please try again.");
+        setLoading(false);
+        return;
       }
-      router.refresh();
+
+      // Fetch session from server — works reliably on both local & Vercel
+      const res = await fetch("/api/auth/session");
+      const session = await res.json();
+      const role = session?.user?.role;
+
+      // Use window.location for a hard redirect — avoids Next.js router race conditions
+      if (role === "SUPER_ADMIN") {
+        window.location.href = "/super-admin";
+      } else {
+        window.location.href = "/dashboard";
+      }
+    } catch {
+      setError("Something went wrong. Please try again.");
+      setLoading(false);
     }
   };
 
@@ -140,11 +145,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 p-4 bg-[#FEF3C7] border border-amber-200 rounded-xl">
-            <p className="text-sm font-medium text-[#92400E] mb-1">Login Credentials</p>
-            <p className="text-xs text-[#92400E]">Email: {process.env.NEXT_PUBLIC_ADMIN_EMAIL ?? "Set ADMIN_EMAIL in .env"}</p>
-            <p className="text-xs text-[#92400E]">Password: Set in .env as ADMIN_PASSWORD</p>
-          </div>
         </div>
       </div>
     </div>
