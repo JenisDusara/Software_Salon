@@ -1,9 +1,9 @@
 "use client";
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft, Phone, Mail, Star, Calendar, TrendingUp,
-  MessageCircle, Edit2, Gift, Clock, CheckCircle2, Scissors, Loader2,
+  MessageCircle, Edit2, Gift, Clock, Scissors, Loader2,
 } from "lucide-react";
 import { formatINR, formatDate, getInitials, getAvatarColor, buildWhatsAppUrl } from "@/lib/utils";
 
@@ -27,8 +27,8 @@ function getTierInfo(points: number) {
   return { label: "Bronze", color: "bg-orange-100 text-orange-700", dot: "bg-orange-400" };
 }
 
-export default function ClientProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function ClientProfilePage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -141,38 +141,98 @@ export default function ClientProfilePage({ params }: { params: Promise<{ id: st
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Visit History */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-[#E7E5E4] shadow-sm overflow-hidden">
-          <div className="p-5 border-b border-[#E7E5E4]">
-            <h2 className="font-semibold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-              Visit History
-            </h2>
+          <div className="flex items-center justify-between p-5 border-b border-[#E7E5E4]">
+            <div>
+              <h2 className="font-semibold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                Visit History
+              </h2>
+              <p className="text-xs text-[#78716C] mt-0.5">{client.invoices.length} visits recorded</p>
+            </div>
+            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+              <Clock className="w-4 h-4 text-blue-600" />
+            </div>
           </div>
           {client.invoices.length === 0 ? (
-            <div className="p-8 text-center text-[#78716C] text-sm">No visits recorded yet</div>
+            <div className="p-12 text-center">
+              <div className="w-12 h-12 rounded-xl bg-[#F5F5F4] flex items-center justify-center mx-auto mb-3">
+                <Scissors className="w-5 h-5 text-[#A8A29E]" />
+              </div>
+              <p className="text-[#78716C] text-sm font-medium">No visits recorded yet</p>
+              <p className="text-[#A8A29E] text-xs mt-1">Client's visit history will appear here</p>
+            </div>
           ) : (
             <div className="divide-y divide-[#E7E5E4]">
-              {client.invoices.map((inv) => (
-                <div key={inv.id} className="flex items-start gap-4 p-4 hover:bg-[#FAFAF9] transition">
-                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${inv.status === "PAID" ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}`}>
-                    <CheckCircle2 className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[#1C1917]">
-                      {inv.items.map((i) => i.description).join(", ") || "Visit"}
-                    </p>
-                    <div className="flex items-center gap-3 mt-1">
-                      <span className="text-xs text-[#78716C]">{formatDate(new Date(inv.date))}</span>
-                      {inv.staff && <span className="text-xs text-[#78716C]">· {inv.staff.name}</span>}
-                      <span className="text-xs text-[#78716C]">· {inv.invoiceNumber}</span>
+              {client.invoices.map((inv) => {
+                const d = new Date(inv.date);
+                const day = d.getDate();
+                const month = d.toLocaleString("en-IN", { month: "short" });
+                const year = d.getFullYear();
+                const nowYear = new Date().getFullYear();
+                return (
+                  <div key={inv.id} className="flex items-start gap-4 p-4 hover:bg-[#FAFAF9] transition group">
+                    {/* Date column */}
+                    <div className="shrink-0 w-12 text-center">
+                      <div className="text-xl font-bold text-[#1C1917] leading-none">{day}</div>
+                      <div className="text-xs text-[#78716C] mt-0.5">{month}</div>
+                      {year !== nowYear && <div className="text-xs text-[#A8A29E]">{year}</div>}
+                    </div>
+
+                    {/* Divider dot */}
+                    <div className="flex flex-col items-center shrink-0 pt-1">
+                      <div className={`w-3 h-3 rounded-full border-2 ${inv.status === "PAID" ? "border-emerald-500 bg-emerald-100" : "border-amber-400 bg-amber-100"}`} />
+                      <div className="w-px flex-1 bg-[#E7E5E4] mt-1 min-h-[20px]" />
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 pb-1">
+                      {/* Staff badge */}
+                      {inv.staff && (
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <div className="w-5 h-5 rounded-full bg-[#1C1917] flex items-center justify-center">
+                            <span className="text-white text-[9px] font-bold">
+                              {inv.staff.name.charAt(0).toUpperCase()}
+                            </span>
+                          </div>
+                          <span className="text-xs font-semibold text-[#1C1917]">{inv.staff.name}</span>
+                          <span className="text-xs text-[#A8A29E]">· served</span>
+                        </div>
+                      )}
+
+                      {/* Service chips */}
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {inv.items.length > 0 ? inv.items.map((item, idx) => (
+                          <span key={idx} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-xs font-medium text-amber-800">
+                            <Scissors className="w-3 h-3 text-amber-500 shrink-0" />
+                            {item.description}
+                          </span>
+                        )) : (
+                          <span className="text-xs text-[#78716C]">Visit</span>
+                        )}
+                      </div>
+
+                      {/* Invoice ref */}
+                      <p className="text-xs text-[#A8A29E]">{inv.invoiceNumber}</p>
+                    </div>
+
+                    {/* Amount + status */}
+                    <div className="shrink-0 text-right">
+                      <p className="font-bold text-[#1C1917] text-sm">{formatINR(inv.totalAmount)}</p>
+                      <span className={`mt-1 inline-block text-xs px-2 py-0.5 rounded-full font-semibold ${
+                        inv.status === "PAID"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : inv.status === "OVERDUE"
+                          ? "bg-red-100 text-red-700"
+                          : "bg-amber-100 text-amber-700"
+                      }`}>
+                        {inv.status}
+                      </span>
+                      {inv.amountPaid < inv.totalAmount && inv.status !== "PAID" && (
+                        <p className="text-[10px] text-amber-600 mt-0.5">Due {formatINR(inv.totalAmount - inv.amountPaid)}</p>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="font-semibold text-[#1C1917] text-sm">{formatINR(inv.totalAmount)}</p>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${inv.status === "PAID" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                      {inv.status}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

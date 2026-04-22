@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const shaped = (appointments as any[]).map((a) => ({
       id: String(a.id),
+      clientId: a.clientId ?? null,
       clientName: String(a.client?.name ?? a.walkInName ?? "Walk-in"),
       serviceName: (a.items ?? [])
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -45,6 +46,7 @@ export async function GET(req: NextRequest) {
           hour12: true,
         })
       ),
+      startTimeISO: (a.startTime as Date).toISOString(),
       duration: Math.round(
         ((a.endTime as Date).getTime() - (a.startTime as Date).getTime()) / 60000
       ),

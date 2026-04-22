@@ -1,9 +1,21 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { UserCheck, Plus, Phone, Star, X, User, Briefcase, Percent, Mail, Loader2 } from "lucide-react";
-import { getInitials, getAvatarColor } from "@/lib/utils";
-import toast, { Toaster } from "react-hot-toast";
+import {
+  UserCheck, Plus, Phone, X, User, Briefcase, Percent, Loader2,
+  Scissors, ChevronRight, TrendingUp, Users, Receipt,
+} from "lucide-react";
+import { getInitials, getAvatarColor, formatINR, formatDate } from "@/lib/utils";
+import toast from "react-hot-toast";
 import { useAppStore } from "@/store/useAppStore";
+
+type RecentActivity = {
+  invoiceNumber: string;
+  date: string;
+  clientName: string;
+  services: string[];
+  totalAmount: number;
+  status: string;
+};
 
 type StaffMember = {
   id: string;
@@ -13,6 +25,8 @@ type StaffMember = {
   commissionRate: number;
   branchId: string;
   isActive: boolean;
+  totalInvoices: number;
+  recentActivity: RecentActivity[];
 };
 
 const roleLabel: Record<string, string> = {
@@ -23,10 +37,10 @@ const roleLabel: Record<string, string> = {
 };
 
 const roleBadge: Record<string, string> = {
-  SALON_ADMIN: "bg-amber-100 text-amber-700",
-  MANAGER: "bg-blue-100 text-blue-700",
-  RECEPTIONIST: "bg-purple-100 text-purple-700",
-  STAFF: "bg-emerald-100 text-emerald-700",
+  SALON_ADMIN: "bg-amber-100 text-amber-700 border-amber-200",
+  MANAGER: "bg-blue-100 text-blue-700 border-blue-200",
+  RECEPTIONIST: "bg-purple-100 text-purple-700 border-purple-200",
+  STAFF: "bg-emerald-100 text-emerald-700 border-emerald-200",
 };
 
 type StaffForm = {
@@ -39,13 +53,13 @@ type StaffForm = {
 
 const DEFAULT_FORM: StaffForm = { name: "", phone: "", role: "STAFF", commissionRate: "20", branchId: "" };
 
-
 export default function StaffPage() {
   const branches = useAppStore((s) => s.branches);
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editTarget, setEditTarget] = useState<StaffMember | null>(null);
+  const [selectedMember, setSelectedMember] = useState<StaffMember | null>(null);
   const [form, setForm] = useState<StaffForm>({ ...DEFAULT_FORM, branchId: "" });
   const [errors, setErrors] = useState<Partial<StaffForm>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -57,16 +71,14 @@ export default function StaffPage() {
       if (!res.ok) throw new Error("Failed to fetch staff");
       const data: StaffMember[] = await res.json();
       setStaff(data);
-    } catch (err) {
+    } catch {
       toast.error("Could not load staff. Please try again.");
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => {
-    fetchStaff();
-  }, [fetchStaff]);
+  useEffect(() => { fetchStaff(); }, [fetchStaff]);
 
   function openAdd() {
     setEditTarget(null);
@@ -127,7 +139,7 @@ export default function StaffPage() {
 
       setShowModal(false);
       await fetchStaff();
-    } catch (err) {
+    } catch {
       toast.error(editTarget ? "Failed to update staff." : "Failed to add staff.");
     } finally {
       setSubmitting(false);
@@ -137,10 +149,11 @@ export default function StaffPage() {
   async function handleDelete(member: StaffMember) {
     try {
       const res = await fetch(`/api/staff/${member.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Failed to delete staff");
+      if (!res.ok) throw new Error();
       toast.success(`${member.name} removed.`);
+      setSelectedMember(null);
       await fetchStaff();
-    } catch (err) {
+    } catch {
       toast.error("Failed to remove staff member.");
     }
   }
@@ -153,89 +166,235 @@ export default function StaffPage() {
     );
   }
 
+  const avgCommission = (() => {
+    const earners = staff.filter((s) => s.commissionRate > 0);
+    if (!earners.length) return 0;
+    return Math.round(earners.reduce((a, m) => a + m.commissionRate, 0) / earners.length);
+  })();
+
   return (
-    <div className="space-y-6">
-      <Toaster position="top-right" />
+    <div className="min-h-screen bg-[#FAFAF9]">
+      <div className={`flex gap-0 transition-all duration-300 ${selectedMember ? "" : ""}`}>
 
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-            Staff
-          </h1>
-          <p className="text-[#78716C] text-sm mt-0.5">{staff.length} team members</p>
-        </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-3 sm:px-4 py-2.5 bg-[#D97706] text-white rounded-xl font-medium hover:bg-amber-600 transition text-sm shrink-0"
-        >
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">Add Staff</span>
-        </button>
-      </div>
+        {/* Main */}
+        <div className={`flex-1 min-w-0 transition-all duration-300 ${selectedMember ? "md:mr-[400px]" : ""}`}>
 
-      {/* Summary stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Total Staff", value: staff.length, color: "bg-blue-50 text-blue-600" },
-          { label: "Stylists", value: staff.filter((s) => s.role === "STAFF").length, color: "bg-emerald-50 text-emerald-600" },
-          { label: "Managers", value: staff.filter((s) => s.role === "MANAGER" || s.role === "SALON_ADMIN").length, color: "bg-amber-50 text-amber-600" },
-          {
-            label: "Avg Commission",
-            value: (() => {
-              const earners = staff.filter((s) => s.commissionRate > 0);
-              if (!earners.length) return "0%";
-              return `${Math.round(earners.reduce((acc, m) => acc + m.commissionRate, 0) / earners.length)}%`;
-            })(),
-            color: "bg-purple-50 text-purple-600",
-          },
-        ].map((s) => (
-          <div key={s.label} className="bg-white rounded-xl border border-[#E7E5E4] p-4 shadow-sm">
-            <div className={`w-9 h-9 rounded-lg ${s.color} flex items-center justify-center mb-3`}>
-              <UserCheck className="w-4 h-4" />
+          {/* Header */}
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h1 className="text-2xl font-bold text-[#1C1917]">Staff</h1>
+              <p className="text-sm text-[#78716C] mt-0.5">{staff.length} team members</p>
             </div>
-            <p className="text-2xl font-bold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{s.value}</p>
-            <p className="text-[#78716C] text-sm">{s.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Staff cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {staff.map((member) => (
-          <div key={member.id} className="bg-white rounded-xl border border-[#E7E5E4] shadow-sm p-5 hover:border-[#D97706] transition">
-            <div className="flex flex-col items-center text-center">
-              <div className={`w-16 h-16 rounded-full ${getAvatarColor(member.name)} flex items-center justify-center text-white font-bold text-lg mb-3`}>
-                {getInitials(member.name)}
-              </div>
-              <h3 className="font-semibold text-[#1C1917]" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
-                {member.name}
-              </h3>
-              <span className={`mt-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${roleBadge[member.role] ?? "bg-gray-100 text-gray-600"}`}>
-                {roleLabel[member.role] ?? member.role}
-              </span>
-            </div>
-
-            <div className="mt-4 space-y-2 pt-4 border-t border-[#E7E5E4]">
-              <div className="flex items-center gap-2 text-sm text-[#78716C]">
-                <Phone className="w-3.5 h-3.5" />
-                <span>{member.phone}</span>
-              </div>
-              {member.commissionRate > 0 && (
-                <div className="flex items-center gap-2 text-sm text-[#78716C]">
-                  <Percent className="w-3.5 h-3.5" />
-                  <span>{member.commissionRate}% commission</span>
-                </div>
-              )}
-            </div>
-
             <button
-              onClick={() => openEdit(member)}
-              className="mt-3 w-full text-xs text-[#D97706] font-medium hover:underline"
+              onClick={openAdd}
+              className="flex items-center gap-2 px-4 py-2.5 bg-[#D97706] text-white rounded-xl font-semibold hover:bg-amber-600 transition text-sm shadow-sm"
             >
-              Edit Profile
+              <Plus className="w-4 h-4" />
+              Add Staff
             </button>
           </div>
-        ))}
+
+          {/* Summary stats */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {[
+              { label: "Total Staff", value: staff.length, icon: Users, color: "bg-blue-50 text-blue-600" },
+              { label: "Stylists", value: staff.filter((s) => s.role === "STAFF").length, icon: Scissors, color: "bg-emerald-50 text-emerald-600" },
+              { label: "Managers", value: staff.filter((s) => s.role === "MANAGER" || s.role === "SALON_ADMIN").length, icon: Briefcase, color: "bg-amber-50 text-amber-600" },
+              { label: "Avg Commission", value: `${avgCommission}%`, icon: Percent, color: "bg-purple-50 text-purple-600" },
+            ].map((s) => (
+              <div key={s.label} className="bg-white rounded-xl border border-[#E7E5E4] p-4 shadow-sm">
+                <div className={`w-9 h-9 rounded-lg ${s.color} flex items-center justify-center mb-3`}>
+                  <s.icon className="w-4 h-4" />
+                </div>
+                <p className="text-2xl font-bold text-[#1C1917]">{s.value}</p>
+                <p className="text-[#78716C] text-sm">{s.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Staff list */}
+          <div className="space-y-3">
+            {staff.map((member) => {
+              const lastAct = member.recentActivity[0];
+              const isSelected = selectedMember?.id === member.id;
+              return (
+                <div
+                  key={member.id}
+                  onClick={() => setSelectedMember(isSelected ? null : member)}
+                  className={`bg-white rounded-xl border shadow-sm p-4 cursor-pointer transition-all hover:shadow-md ${isSelected ? "border-[#D97706] ring-1 ring-[#D97706]/30" : "border-[#E7E5E4] hover:border-[#D97706]/50"}`}
+                >
+                  <div className="flex items-center gap-4">
+                    {/* Avatar */}
+                    <div className={`w-12 h-12 rounded-xl ${getAvatarColor(member.name)} flex items-center justify-center text-white font-bold text-lg shrink-0`}>
+                      {getInitials(member.name)}
+                    </div>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-semibold text-[#1C1917]">{member.name}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold border ${roleBadge[member.role] ?? "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                          {roleLabel[member.role] ?? member.role}
+                        </span>
+                        {member.commissionRate > 0 && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-700 border border-purple-200">
+                            {member.commissionRate}% comm
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <Phone className="w-3 h-3 text-[#A8A29E]" />
+                        <span className="text-xs text-[#78716C]">{member.phone}</span>
+                        <span className="text-[#D4D0CD] mx-1">·</span>
+                        <Receipt className="w-3 h-3 text-[#A8A29E]" />
+                        <span className="text-xs text-[#78716C]">{member.totalInvoices} invoices</span>
+                      </div>
+
+                      {/* Last served */}
+                      {lastAct && (
+                        <div className="mt-2 flex items-start gap-1.5">
+                          <div className="mt-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0" />
+                          <p className="text-xs text-[#78716C] leading-relaxed">
+                            <span className="font-medium text-[#1C1917]">{lastAct.clientName}</span>
+                            {lastAct.services.length > 0 && (
+                              <> — {lastAct.services.join(", ")}</>
+                            )}
+                            <span className="text-[#A8A29E] ml-1">({formatDate(new Date(lastAct.date))})</span>
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Right */}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {member.totalInvoices > 0 && (
+                        <div className="hidden sm:block text-right">
+                          <p className="text-xs text-[#78716C]">Recent</p>
+                          <p className="text-sm font-semibold text-[#1C1917]">
+                            {lastAct ? formatINR(lastAct.totalAmount) : "—"}
+                          </p>
+                        </div>
+                      )}
+                      <ChevronRight className={`w-4 h-4 text-[#A8A29E] transition-transform ${isSelected ? "rotate-90" : ""}`} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Detail Panel */}
+        {selectedMember && (
+          <div className="hidden md:flex fixed top-0 right-0 h-full w-[400px] bg-white border-l border-[#E7E5E4] shadow-xl z-30 flex-col">
+            {/* Panel header */}
+            <div className="flex items-center justify-between p-5 border-b border-[#E7E5E4]">
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 rounded-xl ${getAvatarColor(selectedMember.name)} flex items-center justify-center text-white font-bold`}>
+                  {getInitials(selectedMember.name)}
+                </div>
+                <div>
+                  <p className="font-semibold text-[#1C1917]">{selectedMember.name}</p>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${roleBadge[selectedMember.role] ?? "bg-gray-100 text-gray-600 border-gray-200"}`}>
+                    {roleLabel[selectedMember.role] ?? selectedMember.role}
+                  </span>
+                </div>
+              </div>
+              <button onClick={() => setSelectedMember(null)} className="p-2 hover:bg-[#F5F5F4] rounded-lg transition">
+                <X className="w-4 h-4 text-[#78716C]" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-5">
+              {/* Quick stats */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-[#FAFAF9] rounded-xl p-3 border border-[#E7E5E4]">
+                  <p className="text-xs text-[#78716C] mb-1">Total Invoices</p>
+                  <p className="text-xl font-bold text-[#1C1917]">{selectedMember.totalInvoices}</p>
+                </div>
+                <div className="bg-[#FAFAF9] rounded-xl p-3 border border-[#E7E5E4]">
+                  <p className="text-xs text-[#78716C] mb-1">Commission</p>
+                  <p className="text-xl font-bold text-[#1C1917]">{selectedMember.commissionRate}%</p>
+                </div>
+              </div>
+
+              {/* Contact */}
+              <div className="bg-[#FAFAF9] rounded-xl p-4 border border-[#E7E5E4]">
+                <p className="text-xs font-semibold text-[#78716C] uppercase tracking-wide mb-3">Contact</p>
+                <div className="flex items-center gap-2 text-sm text-[#1C1917]">
+                  <Phone className="w-4 h-4 text-[#A8A29E]" />
+                  <a href={`tel:${selectedMember.phone}`} className="hover:text-[#D97706]">{selectedMember.phone}</a>
+                </div>
+              </div>
+
+              {/* Recent client & service activity */}
+              <div>
+                <p className="text-xs font-semibold text-[#78716C] uppercase tracking-wide mb-3">Recent Client Activity</p>
+                {selectedMember.recentActivity.length === 0 ? (
+                  <div className="text-center py-8 text-[#78716C] text-sm bg-[#FAFAF9] rounded-xl border border-[#E7E5E4]">
+                    No activity yet
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedMember.recentActivity.map((act, idx) => (
+                      <div key={idx} className="bg-[#FAFAF9] rounded-xl border border-[#E7E5E4] p-3">
+                        {/* Client name + date */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-[#1C1917] flex items-center justify-center">
+                              <span className="text-white text-[9px] font-bold">{act.clientName.charAt(0).toUpperCase()}</span>
+                            </div>
+                            <span className="text-sm font-semibold text-[#1C1917]">{act.clientName}</span>
+                          </div>
+                          <span className="text-xs text-[#A8A29E]">{formatDate(new Date(act.date))}</span>
+                        </div>
+
+                        {/* Services */}
+                        {act.services.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mb-2">
+                            {act.services.map((svc, si) => (
+                              <span key={si} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-xs font-medium text-amber-800">
+                                <Scissors className="w-2.5 h-2.5 text-amber-500" />
+                                {svc}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Amount + status */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-[#78716C]">{act.invoiceNumber}</span>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${act.status === "PAID" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                              {act.status}
+                            </span>
+                            <span className="text-sm font-bold text-[#1C1917]">{formatINR(act.totalAmount)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="p-4 border-t border-[#E7E5E4] space-y-2">
+              <button
+                onClick={() => { setSelectedMember(null); openEdit(selectedMember); }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 bg-[#1C1917] text-white rounded-xl text-sm font-semibold hover:bg-[#292524] transition"
+              >
+                Edit Profile
+              </button>
+              <button
+                onClick={() => handleDelete(selectedMember)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 border border-red-200 text-red-600 rounded-xl text-sm font-medium hover:bg-red-50 transition"
+              >
+                Remove Staff Member
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ─── Add / Edit Modal ─── */}
@@ -244,7 +403,7 @@ export default function StaffPage() {
           <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
           <div className="relative bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b border-[#E7E5E4] sticky top-0 bg-white rounded-t-2xl z-10">
-              <h2 className="font-bold text-[#1C1917] text-lg" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+              <h2 className="font-bold text-[#1C1917] text-lg">
                 {editTarget ? "Edit Staff Member" : "Add Staff Member"}
               </h2>
               <button onClick={() => setShowModal(false)} className="p-2 hover:bg-[#F5F5F4] rounded-lg transition">
@@ -253,7 +412,6 @@ export default function StaffPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="p-5 space-y-4">
-              {/* Name */}
               <div>
                 <label className="block text-sm font-medium text-[#1C1917] mb-1.5">Full Name <span className="text-red-500">*</span></label>
                 <div className="relative">
@@ -269,7 +427,6 @@ export default function StaffPage() {
                 {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
               </div>
 
-              {/* Phone */}
               <div>
                 <label className="block text-sm font-medium text-[#1C1917] mb-1.5">Phone <span className="text-red-500">*</span></label>
                 <div className="relative">
@@ -286,7 +443,6 @@ export default function StaffPage() {
                 {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
               </div>
 
-              {/* Role */}
               <div>
                 <label className="block text-sm font-medium text-[#1C1917] mb-2">Role</label>
                 <div className="grid grid-cols-2 gap-2">
@@ -303,7 +459,6 @@ export default function StaffPage() {
                 </div>
               </div>
 
-              {/* Commission */}
               <div>
                 <label className="block text-sm font-medium text-[#1C1917] mb-1.5">
                   Commission Rate (%)
@@ -323,7 +478,6 @@ export default function StaffPage() {
                 {errors.commissionRate && <p className="text-red-500 text-xs mt-1">{errors.commissionRate}</p>}
               </div>
 
-              {/* Branch */}
               <div>
                 <label className="block text-sm font-medium text-[#1C1917] mb-1.5">Branch</label>
                 <select
@@ -338,16 +492,6 @@ export default function StaffPage() {
                 </select>
               </div>
 
-              {editTarget && (
-                <button
-                  type="button"
-                  onClick={() => { setShowModal(false); handleDelete(editTarget); }}
-                  className="w-full py-2.5 border border-red-200 rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 transition"
-                >
-                  Remove Staff Member
-                </button>
-              )}
-
               <div className="flex gap-3 pt-1">
                 <button
                   type="button"
@@ -359,7 +503,7 @@ export default function StaffPage() {
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-2.5 bg-[#D97706] text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="flex-1 py-2.5 bg-[#D97706] text-white rounded-xl text-sm font-medium hover:bg-amber-600 transition disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
                   {editTarget ? "Save Changes" : "Add Staff"}

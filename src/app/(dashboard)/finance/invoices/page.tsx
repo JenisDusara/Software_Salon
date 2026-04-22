@@ -2,25 +2,180 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import {
-  Search,
-  Plus,
-  TrendingUp,
-  Clock,
-  AlertTriangle,
-  FileText,
-  Download,
-  MoreVertical,
-  X,
-  Eye,
-  Trash2,
-  CheckCircle,
-  Share2,
-  MessageCircle,
-  ChevronDown,
-  Printer,
-  Filter,
+  Search, Plus, TrendingUp, Clock, AlertTriangle, FileText,
+  Download, MoreVertical, X, Eye, Trash2, CheckCircle,
+  Share2, MessageCircle, ChevronDown, Printer, Filter, UserPlus, UserCheck,
+  Users, Footprints,
 } from "lucide-react";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
+
+// ── Invoice PDF generator ─────────────────────────────────────────────────────
+function openInvoicePDF(inv: Invoice) {
+  const fmt = (n: number) =>
+    `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const rows = inv.items
+    .map(
+      (it) => `
+    <tr>
+      <td style="padding:7px 6px;border-bottom:1px solid #f5f5f4;font-size:12px">${it.description}</td>
+      <td style="padding:7px 6px;border-bottom:1px solid #f5f5f4;text-align:center;font-size:12px">${it.quantity}</td>
+      <td style="padding:7px 6px;border-bottom:1px solid #f5f5f4;text-align:right;font-size:12px">${fmt(it.rate)}</td>
+      <td style="padding:7px 6px;border-bottom:1px solid #f5f5f4;text-align:right;font-size:12px;color:#ef4444">${it.discount > 0 ? `-${fmt(it.discount)}` : "—"}</td>
+      <td style="padding:7px 6px;border-bottom:1px solid #f5f5f4;text-align:right;font-size:12px">${fmt(it.cgst)}</td>
+      <td style="padding:7px 6px;border-bottom:1px solid #f5f5f4;text-align:right;font-size:12px">${fmt(it.sgst)}</td>
+      <td style="padding:7px 6px;border-bottom:1px solid #f5f5f4;text-align:right;font-weight:600;font-size:12px">${fmt(it.total)}</td>
+    </tr>`
+    )
+    .join("");
+
+  const row = (label: string, value: string, color = "#44403c", bold = false) =>
+    `<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:${color};${bold ? "font-weight:700" : ""}">
+      <span>${label}</span><span>${value}</span>
+    </div>`;
+
+  const payMap: Record<string, string> = { CASH: "Cash", UPI: "UPI", CARD: "Card", SPLIT: "Split", BANK: "Bank Transfer" };
+  const payLabel = inv.paymentMethod ? (payMap[inv.paymentMethod] ?? inv.paymentMethod) : "—";
+  const invDate = new Date(inv.date);
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+  <title>${inv.invoiceNumber}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1c1917;background:#f5f5f4;min-height:100vh}
+    .topbar{background:#1c1917;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+    .topbar-left{display:flex;align-items:center;gap:10px}
+    .topbar-logo{width:32px;height:32px;background:#d97706;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:white}
+    .topbar-title{color:#e7e5e4;font-size:14px;font-weight:600}
+    .topbar-sub{color:#78716c;font-size:11px;margin-top:1px}
+    .dl-btn{background:#d97706;color:white;border:none;padding:8px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:7px;transition:background .15s}
+    .dl-btn:hover{background:#b45309}
+    .dl-btn svg{width:15px;height:15px}
+    .card{max-width:680px;margin:24px auto;background:white;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);padding:28px;margin-bottom:40px}
+    @media print{.topbar{display:none!important}.card{margin:0;border-radius:0;box-shadow:none;padding:20px}@page{margin:12px}}
+  </style>
+  </head><body>
+
+  <!-- Download bar (hidden on print) -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-logo">S</div>
+      <div>
+        <div class="topbar-title">SalonSoft Pro — ${inv.invoiceNumber}</div>
+        <div class="topbar-sub">${invDate.toLocaleDateString("en-IN",{day:"numeric",month:"long",year:"numeric"})}</div>
+      </div>
+    </div>
+    <button class="dl-btn" onclick="window.print()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/>
+        <line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+      Download / Print
+    </button>
+  </div>
+  <div class="card">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid #1c1917;padding-bottom:14px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:40px;height:40px;background:#1c1917;border-radius:10px;display:flex;align-items:center;justify-content:center">
+          <span style="color:white;font-weight:800;font-size:18px">S</span>
+        </div>
+        <div>
+          <div style="font-size:16px;font-weight:700">SalonSoft Pro</div>
+          <div style="font-size:11px;color:#78716c">GST Tax Invoice</div>
+        </div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:18px;font-weight:800;color:#d97706">${inv.invoiceNumber}</div>
+        <div style="font-size:11px;color:#78716c;margin-top:2px">
+          ${invDate.toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}
+        </div>
+        <div style="margin-top:4px;display:inline-block;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:600;
+          background:${inv.status === "PAID" ? "#d1fae5" : "#fef3c7"};
+          color:${inv.status === "PAID" ? "#065f46" : "#92400e"}">
+          ${inv.status}
+        </div>
+      </div>
+    </div>
+
+    <!-- Bill To & Staff -->
+    <div style="display:flex;justify-content:space-between;margin-bottom:16px;gap:16px">
+      <div style="flex:1;background:#fafaf9;border-radius:8px;padding:12px">
+        <div style="font-size:10px;font-weight:600;color:#78716c;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Bill To</div>
+        <div style="font-size:14px;font-weight:700">${inv.clientName}</div>
+        ${inv.clientPhone ? `<div style="font-size:12px;color:#78716c;margin-top:2px">${inv.clientPhone}</div>` : ""}
+        <div style="margin-top:4px">
+          <span style="font-size:10px;font-weight:600;padding:2px 8px;border-radius:99px;
+            background:${inv.isWalkIn ? "#fef3c7" : "#d1fae5"};
+            color:${inv.isWalkIn ? "#92400e" : "#065f46"}">
+            ${inv.isWalkIn ? "Walk-in" : "Registered Client"}
+          </span>
+        </div>
+      </div>
+      ${inv.staffName ? `
+      <div style="background:#fafaf9;border-radius:8px;padding:12px;min-width:140px;text-align:right">
+        <div style="font-size:10px;font-weight:600;color:#78716c;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Served By</div>
+        <div style="font-size:14px;font-weight:700">${inv.staffName}</div>
+      </div>` : ""}
+    </div>
+
+    <!-- Items Table -->
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+      <thead>
+        <tr style="background:#1c1917">
+          <th style="text-align:left;padding:8px 6px;font-size:11px;color:#e7e5e4;font-weight:600">Service / Item</th>
+          <th style="text-align:center;padding:8px 6px;font-size:11px;color:#e7e5e4;font-weight:600">Qty</th>
+          <th style="text-align:right;padding:8px 6px;font-size:11px;color:#e7e5e4;font-weight:600">Rate</th>
+          <th style="text-align:right;padding:8px 6px;font-size:11px;color:#e7e5e4;font-weight:600">Disc</th>
+          <th style="text-align:right;padding:8px 6px;font-size:11px;color:#e7e5e4;font-weight:600">CGST</th>
+          <th style="text-align:right;padding:8px 6px;font-size:11px;color:#e7e5e4;font-weight:600">SGST</th>
+          <th style="text-align:right;padding:8px 6px;font-size:11px;color:#e7e5e4;font-weight:600">Total</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+
+    <!-- Totals -->
+    <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+      <div style="min-width:260px">
+        ${row("Subtotal", fmt(inv.subtotal))}
+        ${inv.discount > 0 ? row("Discount", `-${fmt(inv.discount)}`, "#ef4444") : ""}
+        ${row("Total GST (18%)", fmt(inv.taxAmount), "#78716c")}
+        ${inv.tips > 0 ? row("Tips", `+${fmt(inv.tips)}`, "#059669") : ""}
+        <div style="display:flex;justify-content:space-between;border-top:2px solid #1c1917;margin-top:6px;padding-top:8px;font-size:16px;font-weight:800">
+          <span>Grand Total</span><span style="color:#d97706">${fmt(inv.totalAmount)}</span>
+        </div>
+        ${inv.amountPaid < inv.totalAmount ? row("Amount Paid", fmt(inv.amountPaid), "#059669") : ""}
+        ${inv.amountPaid < inv.totalAmount ? row("Balance Due", fmt(inv.totalAmount - inv.amountPaid), "#d97706", true) : ""}
+      </div>
+    </div>
+
+    <!-- Payment & Footer -->
+    <div style="border-top:1px dashed #e7e5e4;padding-top:12px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:12px;color:#78716c">
+        Payment: <strong style="color:#1c1917">${payLabel}</strong>
+      </div>
+      <div style="text-align:center">
+        <span style="display:inline-block;background:#1c1917;color:white;padding:4px 16px;border-radius:99px;font-size:11px;font-weight:600">
+          ${inv.status === "PAID" ? "✓ PAID" : inv.status}
+        </span>
+        <div style="color:#78716c;font-size:11px;margin-top:6px">Thank you for visiting! ✂️</div>
+      </div>
+    </div>
+
+  </div>
+  </body></html>`;
+
+  const win = window.open("", "_blank", "width=780,height=900");
+  if (win) {
+    win.document.write(html);
+    win.document.close();
+  } else {
+    toast.error("Pop-up blocked — please allow pop-ups for this site");
+  }
+}
 import {
   formatINR,
   formatDate,
@@ -32,6 +187,7 @@ import {
 } from "@/lib/utils";
 type Invoice = {
   id: string; invoiceNumber: string; clientId: string | null; clientName: string; clientPhone: string;
+  isWalkIn: boolean; // true = walk-in, false = registered client
   staffName: string;
   items: Array<{ description: string; quantity: number; rate: number; discount: number; cgst: number; sgst: number; total: number }>;
   subtotal: number; taxAmount: number; discount: number; tips: number;
@@ -44,6 +200,9 @@ type StatusChip = (typeof STATUS_CHIPS)[number];
 
 const DATE_FILTERS = ["Today", "This Week", "This Month"] as const;
 type DateFilter = (typeof DATE_FILTERS)[number];
+
+const CLIENT_TYPE_FILTERS = ["All", "Walk-in", "Registered"] as const;
+type ClientTypeFilter = (typeof CLIENT_TYPE_FILTERS)[number];
 
 function paymentIcon(method: string | null) {
   if (!method) return null;
@@ -91,11 +250,13 @@ function isThisMonth(date: Date) {
 function ActionsMenu({
   invoice,
   onView,
+  onPDF,
   onMarkPaid,
   onDelete,
 }: {
   invoice: Invoice;
   onView: () => void;
+  onPDF: () => void;
   onMarkPaid: () => void;
   onDelete: () => void;
 }) {
@@ -144,11 +305,11 @@ function ActionsMenu({
             onClick={(e) => {
               e.stopPropagation();
               setOpen(false);
-              toast.success("Download coming soon");
+              onPDF();
             }}
           >
             <Download className="w-4 h-4 text-[#78716C]" />
-            Download PDF
+            Open PDF
           </button>
           <a
             href={waUrl}
@@ -199,11 +360,15 @@ function InvoiceDetailPanel({
   onClose,
   onMarkPaid,
   onDelete,
+  onRegisterClient,
+  onPDF,
 }: {
   invoice: Invoice;
   onClose: () => void;
   onMarkPaid: (id: string) => void;
   onDelete: (id: string) => void;
+  onRegisterClient: (invoice: Invoice) => void;
+  onPDF: () => void;
 }) {
   const whatsappMsg = `Hi ${invoice.clientName}! Your invoice ${invoice.invoiceNumber} for ${formatINR(invoice.totalAmount)} is ready. Thank you for visiting SalonSoft Pro! 🙏`;
   const waUrl = `https://wa.me/91${invoice.clientPhone}?text=${encodeURIComponent(whatsappMsg)}`;
@@ -245,20 +410,44 @@ function InvoiceDetailPanel({
         </div>
 
         {/* Client info */}
-        <div className="flex items-center gap-3 p-3 bg-[#FAFAF9] rounded-lg">
-          <div
-            className={`w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center text-white font-semibold text-sm flex-shrink-0`}
-          >
-            {initials}
+        <div className="space-y-2">
+          <div className="flex items-center gap-3 p-3 bg-[#FAFAF9] rounded-lg">
+            <div className="relative flex-shrink-0">
+              <div className={`w-10 h-10 rounded-full ${avatarColor} flex items-center justify-center text-white font-semibold text-sm`}>
+                {initials}
+              </div>
+              {/* Walk-in / Client indicator dot */}
+              <div className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center ${invoice.isWalkIn ? "bg-amber-400" : "bg-emerald-500"}`}>
+                {invoice.isWalkIn
+                  ? <span className="text-white text-[7px] font-bold">W</span>
+                  : <span className="text-white text-[7px] font-bold">✓</span>}
+              </div>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="font-medium text-[#1C1917] text-sm">{invoice.clientName}</p>
+                {invoice.isWalkIn
+                  ? <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700 border border-amber-200">Walk-in</span>
+                  : <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200"><UserCheck className="w-2.5 h-2.5" />Registered</span>
+                }
+              </div>
+              <p className="text-xs text-[#78716C]">{invoice.clientPhone || "No phone"}</p>
+            </div>
+            <div className="text-right flex-shrink-0">
+              <p className="text-xs text-[#78716C]">Staff</p>
+              <p className="text-xs font-medium text-[#1C1917]">{invoice.staffName || "—"}</p>
+            </div>
           </div>
-          <div>
-            <p className="font-medium text-[#1C1917] text-sm">{invoice.clientName}</p>
-            <p className="text-xs text-[#78716C]">{invoice.clientPhone}</p>
-          </div>
-          <div className="ml-auto text-right">
-            <p className="text-xs text-[#78716C]">Staff</p>
-            <p className="text-xs font-medium text-[#1C1917]">{invoice.staffName}</p>
-          </div>
+          {/* Register walk-in as client */}
+          {invoice.isWalkIn && (
+            <button
+              onClick={() => onRegisterClient(invoice)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg border border-dashed border-blue-300 bg-blue-50 text-blue-700 text-xs font-semibold hover:bg-blue-100 transition-colors"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              Register as Permanent Client
+            </button>
+          )}
         </div>
 
         {/* Items table */}
@@ -343,7 +532,7 @@ function InvoiceDetailPanel({
       <div className="p-4 border-t border-[#E7E5E4] space-y-2">
         <div className="grid grid-cols-2 gap-2">
           <button
-            onClick={() => toast.success("Download coming soon")}
+            onClick={onPDF}
             className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-[#E7E5E4] text-sm text-[#1C1917] hover:bg-[#F5F5F4] transition-colors"
           >
             <Download className="w-4 h-4" />
@@ -380,20 +569,136 @@ function InvoiceDetailPanel({
   );
 }
 
+function RegisterClientModal({
+  invoice,
+  onClose,
+  onSave,
+}: {
+  invoice: Invoice;
+  onClose: () => void;
+  onSave: (invoice: Invoice, name: string, phone: string, email: string) => Promise<void>;
+}) {
+  const [name, setName] = useState(invoice.clientName ?? "");
+  const [phone, setPhone] = useState(invoice.clientPhone ?? "");
+  const [email, setEmail] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [phoneDupe, setPhoneDupe] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!/^\d{10}$/.test(phone)) { setPhoneDupe(null); return; }
+    const t = setTimeout(() => {
+      fetch(`/api/clients?search=${encodeURIComponent(phone)}`)
+        .then((r) => r.json())
+        .then((data) => {
+          const match = Array.isArray(data) ? data.find((c: any) => c.phone === phone) ?? null : null;
+          setPhoneDupe(match ? match.name : null);
+        });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [phone]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) { toast.error("Name is required"); return; }
+    if (!/^\d{10}$/.test(phone)) { toast.error("Phone must be exactly 10 digits"); return; }
+    if (phoneDupe) { toast.error(`${phone} is already registered to ${phoneDupe}`); return; }
+    setSaving(true);
+    await onSave(invoice, name.trim(), phone, email.trim());
+    setSaving(false);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="flex items-center justify-between p-5 border-b border-[#E7E5E4]">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-blue-50 rounded-lg">
+              <UserPlus className="w-4 h-4 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-[#1C1917] text-sm">Register as Permanent Client</h3>
+              <p className="text-xs text-[#78716C]">From walk-in invoice {invoice.invoiceNumber}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-[#F5F5F4] transition-colors">
+            <X className="w-4 h-4 text-[#78716C]" />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-[#78716C] mb-1.5">Full Name *</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Client full name"
+              className="w-full px-3 py-2.5 text-sm border border-[#E7E5E4] rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 text-[#1C1917]"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[#78716C] mb-1.5">Phone Number * (10 digits)</label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+              placeholder="10-digit mobile number"
+              className={`w-full px-3 py-2.5 text-sm border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 text-[#1C1917] ${phoneDupe ? "border-red-400 bg-red-50" : "border-[#E7E5E4]"}`}
+            />
+            {phoneDupe && (
+              <p className="text-xs text-red-600 mt-1">{phone} is already registered to <strong>{phoneDupe}</strong></p>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[#78716C] mb-1.5">Email (optional)</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="email@example.com"
+              className="w-full px-3 py-2.5 text-sm border border-[#E7E5E4] rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 text-[#1C1917]"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2.5 text-sm border border-[#E7E5E4] rounded-lg text-[#78716C] hover:bg-[#F5F5F4] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving || !!phoneDupe}
+              className="flex-1 px-4 py-2.5 text-sm bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors"
+            >
+              {saving ? "Registering..." : "Register Client"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [search, setSearch] = useState("");
   const [activeStatus, setActiveStatus] = useState<StatusChip>("All");
   const [activeDateFilter, setActiveDateFilter] = useState<DateFilter | null>(null);
+  const [clientTypeFilter, setClientTypeFilter] = useState<ClientTypeFilter>("All");
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [registeringInvoice, setRegisteringInvoice] = useState<Invoice | null>(null);
 
   const fetchInvoices = useCallback(async () => {
     try {
       const res = await fetch("/api/invoices");
       const data = await res.json();
       if (Array.isArray(data)) {
-        setInvoices(data.map((inv: Invoice) => ({
+        setInvoices(data.map((inv: any) => ({
           ...inv,
+          isWalkIn: !inv.clientId,
           status: inv.status === "PENDING" && isOverdue(inv.dueDate) ? "OVERDUE" : inv.status,
         })));
       }
@@ -423,6 +728,12 @@ export default function InvoicesPage() {
   const thisMonthInvoices = invoices.filter((i) => isThisMonth(new Date(i.date)));
   const invoiceCountThisMonth = thisMonthInvoices.length;
 
+  // Walk-in vs Registered breakdown
+  const walkInInvoices = invoices.filter((i) => i.isWalkIn);
+  const registeredInvoices = invoices.filter((i) => !i.isWalkIn);
+  const walkInPct = invoices.length > 0 ? Math.round((walkInInvoices.length / invoices.length) * 100) : 0;
+  const registeredPct = 100 - walkInPct;
+
   // Filtering
   const filtered = invoices.filter((inv) => {
     const q = search.toLowerCase();
@@ -445,7 +756,12 @@ export default function InvoicesPage() {
       (activeDateFilter === "This Week" && isThisWeek(invDate)) ||
       (activeDateFilter === "This Month" && isThisMonth(invDate));
 
-    return matchesSearch && matchesStatus && matchesDate;
+    const matchesClientType =
+      clientTypeFilter === "All" ||
+      (clientTypeFilter === "Walk-in" && inv.isWalkIn) ||
+      (clientTypeFilter === "Registered" && !inv.isWalkIn);
+
+    return matchesSearch && matchesStatus && matchesDate && matchesClientType;
   });
 
   async function handleMarkPaid(id: string) {
@@ -472,7 +788,28 @@ export default function InvoicesPage() {
     } catch { toast.error("Failed to delete invoice"); }
   }
 
-  const stats = [
+  async function handleSaveRegistration(invoice: Invoice, name: string, phone: string, email: string) {
+    try {
+      const res = await fetch("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, phone, email: email || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error ?? "Failed to register client"); return; }
+      // Mark invoice as linked to new client locally
+      setInvoices((prev) => prev.map((inv) =>
+        inv.id === invoice.id ? { ...inv, isWalkIn: false, clientId: data.id, clientName: name, clientPhone: phone } : inv
+      ));
+      if (selectedInvoice?.id === invoice.id) {
+        setSelectedInvoice((prev) => prev ? { ...prev, isWalkIn: false, clientId: data.id, clientName: name, clientPhone: phone } : null);
+      }
+      setRegisteringInvoice(null);
+      toast.success(`${name} registered as a permanent client`);
+    } catch { toast.error("Failed to register client"); }
+  }
+
+  const topStats = [
     {
       label: "Total Revenue",
       value: formatINR(totalRevenue),
@@ -509,8 +846,6 @@ export default function InvoicesPage() {
 
   return (
     <div className="min-h-screen bg-[#FAFAF9]">
-      <Toaster position="top-right" />
-
       <div className={`flex gap-0 transition-all duration-300 ${selectedInvoice ? "pr-0" : ""}`}>
         {/* Main content */}
         <div className={`flex-1 min-w-0 transition-all duration-300 ${selectedInvoice ? "md:mr-[420px]" : ""}`}>
@@ -532,8 +867,8 @@ export default function InvoicesPage() {
           </div>
 
           {/* Stats row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-            {stats.map((stat) => (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            {topStats.map((stat) => (
               <div
                 key={stat.label}
                 className="bg-white rounded-xl border border-[#E7E5E4] shadow-sm p-5"
@@ -550,6 +885,86 @@ export default function InvoicesPage() {
                 <p className="text-xs text-[#78716C] mt-1">{stat.sub}</p>
               </div>
             ))}
+          </div>
+
+          {/* Walk-in vs Registered breakdown card */}
+          <div className="bg-white rounded-xl border border-[#E7E5E4] shadow-sm p-5 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-violet-50 flex items-center justify-center">
+                  <Users className="w-4 h-4 text-violet-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-[#1C1917]">Walk-in vs Registered Clients</p>
+                  <p className="text-xs text-[#78716C]">Based on {invoices.length} total invoices</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 text-right">
+                <div>
+                  <p className="text-xs text-[#78716C]">Walk-in</p>
+                  <p className="text-lg font-bold text-amber-600">{walkInInvoices.length}</p>
+                </div>
+                <div className="w-px h-8 bg-[#E7E5E4]" />
+                <div>
+                  <p className="text-xs text-[#78716C]">Registered</p>
+                  <p className="text-lg font-bold text-emerald-600">{registeredInvoices.length}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Split bar */}
+            {invoices.length > 0 ? (
+              <div>
+                <div className="flex rounded-full overflow-hidden h-3 mb-2">
+                  <div
+                    className="bg-amber-400 transition-all duration-500"
+                    style={{ width: `${walkInPct}%` }}
+                    title={`Walk-in: ${walkInPct}%`}
+                  />
+                  <div
+                    className="bg-emerald-500 transition-all duration-500"
+                    style={{ width: `${registeredPct}%` }}
+                    title={`Registered: ${registeredPct}%`}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-4">
+                    <span className="flex items-center gap-1.5 text-[#78716C]">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
+                      Walk-in — <strong className="text-[#1C1917]">{walkInPct}%</strong>
+                      <button
+                        onClick={() => setClientTypeFilter(clientTypeFilter === "Walk-in" ? "All" : "Walk-in")}
+                        className={`ml-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold transition ${clientTypeFilter === "Walk-in" ? "bg-amber-100 border-amber-300 text-amber-700" : "border-[#E7E5E4] text-[#78716C] hover:border-amber-300"}`}
+                      >
+                        {clientTypeFilter === "Walk-in" ? "Filtered ✓" : "Filter"}
+                      </button>
+                    </span>
+                    <span className="flex items-center gap-1.5 text-[#78716C]">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                      Registered — <strong className="text-[#1C1917]">{registeredPct}%</strong>
+                      <button
+                        onClick={() => setClientTypeFilter(clientTypeFilter === "Registered" ? "All" : "Registered")}
+                        className={`ml-1 px-2 py-0.5 rounded-full border text-[10px] font-semibold transition ${clientTypeFilter === "Registered" ? "bg-emerald-100 border-emerald-300 text-emerald-700" : "border-[#E7E5E4] text-[#78716C] hover:border-emerald-300"}`}
+                      >
+                        {clientTypeFilter === "Registered" ? "Filtered ✓" : "Filter"}
+                      </button>
+                    </span>
+                  </div>
+                  {walkInPct > 60 && (
+                    <span className="text-amber-600 font-semibold flex items-center gap-1">
+                      Tip: {walkInPct}% walk-ins — consider loyalty program
+                    </span>
+                  )}
+                  {registeredPct > 60 && (
+                    <span className="text-emerald-600 font-semibold">
+                      {registeredPct}% are returning clients
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-[#78716C] text-center py-2">No invoice data yet</p>
+            )}
           </div>
 
           {/* Filters bar */}
@@ -618,12 +1033,51 @@ export default function InvoicesPage() {
                   ))}
                 </div>
               </div>
+
+              {/* Row 3: Client type filter */}
+              <div className="flex items-center gap-2 pt-1 border-t border-[#F5F5F4]">
+                <span className="text-xs text-[#78716C] font-medium shrink-0">Client Type:</span>
+                <div className="flex items-center gap-1.5">
+                  {CLIENT_TYPE_FILTERS.map((f) => {
+                    const count = f === "Walk-in" ? walkInInvoices.length : f === "Registered" ? registeredInvoices.length : invoices.length;
+                    const activeStyle = f === "Walk-in"
+                      ? "bg-amber-500 text-white border-amber-500"
+                      : f === "Registered"
+                        ? "bg-emerald-600 text-white border-emerald-600"
+                        : "bg-[#1C1917] text-white border-[#1C1917]";
+                    return (
+                      <button
+                        key={f}
+                        onClick={() => setClientTypeFilter(f)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                          clientTypeFilter === f
+                            ? activeStyle
+                            : "bg-white text-[#78716C] border-[#E7E5E4] hover:border-[#A8A29E]"
+                        }`}
+                      >
+                        {f === "Walk-in" && <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />}
+                        {f === "Registered" && <span className="w-1.5 h-1.5 rounded-full bg-current opacity-80" />}
+                        {f}
+                        <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${clientTypeFilter === f ? "bg-white/20" : "bg-[#F5F5F4] text-[#78716C]"}`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
 
           {/* Result count */}
-          <p className="text-xs text-[#78716C] mb-3 px-1">
-            Showing {filtered.length} of {invoices.length} invoices
+          <p className="text-xs text-[#78716C] mb-3 px-1 flex items-center gap-2">
+            <span>Showing {filtered.length} of {invoices.length} invoices</span>
+            {clientTypeFilter !== "All" && (
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${clientTypeFilter === "Walk-in" ? "bg-amber-50 border-amber-200 text-amber-700" : "bg-emerald-50 border-emerald-200 text-emerald-700"}`}>
+                {clientTypeFilter === "Walk-in" ? "🚶 Walk-in only" : "✓ Registered only"}
+                <button onClick={() => setClientTypeFilter("All")} className="ml-0.5 hover:opacity-70">×</button>
+              </span>
+            )}
           </p>
 
           {/* Desktop table */}
@@ -696,9 +1150,13 @@ export default function InvoicesPage() {
                           {getInitials(inv.clientName)}
                         </div>
                         <div>
-                          <p className="font-medium text-[#1C1917] leading-tight">
-                            {inv.clientName}
-                          </p>
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-medium text-[#1C1917] leading-tight">{inv.clientName}</p>
+                            {inv.isWalkIn
+                              ? <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700">Walk-in</span>
+                              : <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700">Client</span>
+                            }
+                          </div>
                           <p className="text-xs text-[#78716C]">{inv.clientPhone}</p>
                         </div>
                       </div>
@@ -743,12 +1201,29 @@ export default function InvoicesPage() {
 
                     {/* Actions */}
                     <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
-                      <ActionsMenu
-                        invoice={inv as Invoice}
-                        onView={() => setSelectedInvoice(inv as Invoice)}
-                        onMarkPaid={() => handleMarkPaid(inv.id)}
-                        onDelete={() => handleDelete(inv.id)}
-                      />
+                      <div className="flex items-center gap-1.5 justify-end">
+                        {/* Receipt sticker */}
+                        <button
+                          onClick={() => openInvoicePDF(inv as Invoice)}
+                          title="Open Invoice PDF"
+                          className="w-9 h-9 rounded-xl bg-amber-50 border border-amber-200 shadow-sm flex items-center justify-center hover:bg-amber-100 hover:shadow-md hover:scale-105 active:scale-95 transition-all group"
+                        >
+                          <svg className="w-4 h-4 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10 9 9 9 8 9"/>
+                          </svg>
+                        </button>
+                        <ActionsMenu
+                          invoice={inv as Invoice}
+                          onView={() => setSelectedInvoice(inv as Invoice)}
+                          onPDF={() => openInvoicePDF(inv as Invoice)}
+                          onMarkPaid={() => handleMarkPaid(inv.id)}
+                          onDelete={() => handleDelete(inv.id)}
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -784,14 +1259,18 @@ export default function InvoicesPage() {
                   </div>
                   <div className="flex items-center gap-2 mb-3">
                     <div
-                      className={`w-7 h-7 rounded-full ${getAvatarColor(inv.clientName)} flex items-center justify-center text-white text-xs font-semibold`}
+                      className={`w-7 h-7 rounded-full ${getAvatarColor(inv.clientName)} flex items-center justify-center text-white text-xs font-semibold flex-shrink-0`}
                     >
                       {getInitials(inv.clientName)}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-[#1C1917]">
-                        {inv.clientName}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium text-[#1C1917]">{inv.clientName}</p>
+                        {inv.isWalkIn
+                          ? <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700">Walk-in</span>
+                          : <span className="px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-700">Client</span>
+                        }
+                      </div>
                       <p className="text-xs text-[#78716C]">
                         {inv.items[0].description}
                         {inv.items.length > 1 && ` +${inv.items.length - 1}`}
@@ -806,6 +1285,19 @@ export default function InvoicesPage() {
                       <span className="text-xs text-[#78716C]">
                         {formatDate(inv.date)}
                       </span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); openInvoicePDF(inv as Invoice); }}
+                        title="Open Invoice PDF"
+                        className="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 shadow-sm flex items-center justify-center hover:bg-amber-100 hover:scale-105 active:scale-95 transition-all"
+                      >
+                        <svg className="w-3.5 h-3.5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                          <polyline points="14 2 14 8 20 8"/>
+                          <line x1="16" y1="13" x2="8" y2="13"/>
+                          <line x1="16" y1="17" x2="8" y2="17"/>
+                          <polyline points="10 9 9 9 8 9"/>
+                        </svg>
+                      </button>
                       <a
                         href={waUrl}
                         target="_blank"
@@ -835,6 +1327,8 @@ export default function InvoicesPage() {
               onClose={() => setSelectedInvoice(null)}
               onMarkPaid={handleMarkPaid}
               onDelete={handleDelete}
+              onRegisterClient={(inv) => setRegisteringInvoice(inv)}
+              onPDF={() => openInvoicePDF(selectedInvoice)}
             />
           )}
         </div>
@@ -847,6 +1341,15 @@ export default function InvoicesPage() {
           />
         )}
       </div>
+
+      {/* Register walk-in as client modal */}
+      {registeringInvoice && (
+        <RegisterClientModal
+          invoice={registeringInvoice}
+          onClose={() => setRegisteringInvoice(null)}
+          onSave={handleSaveRegistration}
+        />
+      )}
     </div>
   );
 }

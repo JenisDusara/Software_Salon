@@ -74,6 +74,203 @@ function EmptyState({ message }: { message: string }) {
   return <p className="text-sm text-[#78716C] text-center py-8">{message}</p>;
 }
 
+// ─── Export helpers ───────────────────────────────────────────────────────────
+
+function exportPDF(
+  period: string,
+  overview: Overview | null,
+  monthlyData: MonthlyPoint[],
+  staffPerf: StaffPerf[],
+  serviceRevenue: ServiceRev[],
+  gstData: GstMonth[],
+) {
+  const fmt = (n: number) =>
+    `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const date = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+  const netMargin = overview && overview.revenue > 0
+    ? ((overview.netProfit / overview.revenue) * 100).toFixed(1) + "%"
+    : "0%";
+
+  const kpiRow = (label: string, value: string, color = "#1c1917") =>
+    `<div style="flex:1;background:#fafaf9;border-radius:10px;padding:14px;border:1px solid #e7e5e4;text-align:center">
+      <div style="font-size:18px;font-weight:800;color:${color}">${value}</div>
+      <div style="font-size:11px;color:#78716c;margin-top:4px">${label}</div>
+    </div>`;
+
+  const tableRow = (...cells: string[]) =>
+    `<tr>${cells.map((c, i) => `<td style="padding:8px 10px;border-bottom:1px solid #f5f5f4;font-size:12px;${i > 0 ? "text-align:right" : ""}">${c}</td>`).join("")}</tr>`;
+
+  const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>P&L Report — ${period}</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1c1917;background:#f5f5f4}
+    .topbar{background:#1c1917;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10}
+    .logo{width:32px;height:32px;background:#d97706;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;color:white}
+    .topbar-title{color:#e7e5e4;font-size:14px;font-weight:600;margin-left:10px}
+    .dl-btn{background:#d97706;color:white;border:none;padding:8px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+    .dl-btn:hover{background:#b45309}
+    .card{max-width:760px;margin:20px auto;background:white;border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,.07);padding:28px;margin-bottom:20px}
+    h1{font-size:20px;font-weight:800}
+    h2{font-size:14px;font-weight:700;margin-bottom:12px;color:#1c1917}
+    table{width:100%;border-collapse:collapse}
+    th{background:#1c1917;color:#e7e5e4;padding:8px 10px;font-size:11px;text-align:left;font-weight:600}
+    th:not(:first-child){text-align:right}
+    tfoot td{font-weight:700;background:#fafaf9;border-top:2px solid #e7e5e4}
+    @media print{.topbar{display:none!important}.card{margin:0;border-radius:0;box-shadow:none}@page{margin:12px}}
+  </style></head><body>
+  <div class="topbar">
+    <div style="display:flex;align-items:center">
+      <div class="logo">S</div>
+      <div class="topbar-title">Profit & Loss Report — ${period}</div>
+    </div>
+    <button class="dl-btn" onclick="window.print()">⬇ Download / Print</button>
+  </div>
+
+  <!-- Header card -->
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1c1917;padding-bottom:14px;margin-bottom:18px">
+      <div>
+        <h1>Profit & Loss Report</h1>
+        <div style="color:#78716c;font-size:12px;margin-top:4px">${period} · Generated on ${date}</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:11px;color:#78716c">SalonSoft Pro</div>
+        <div style="font-size:11px;color:#78716c">GST Compliant</div>
+      </div>
+    </div>
+    <!-- KPIs -->
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      ${kpiRow("Total Revenue", fmt(overview?.revenue ?? 0), "#059669")}
+      ${kpiRow("Total Expenses", fmt(overview?.expenses ?? 0), "#dc2626")}
+      ${kpiRow("Net Profit", fmt(overview?.netProfit ?? 0), "#d97706")}
+      ${kpiRow("Net Margin", netMargin, "#2563eb")}
+    </div>
+  </div>
+
+  <!-- Monthly P&L -->
+  ${monthlyData.length > 0 ? `<div class="card">
+    <h2>Monthly Revenue & Expenses</h2>
+    <table>
+      <thead><tr><th>Month</th><th>Revenue</th><th>Expenses</th><th>Net Profit</th></tr></thead>
+      <tbody>${monthlyData.map((m) => tableRow(m.month, fmt(m.revenue), fmt(m.expenses), fmt(m.profit))).join("")}</tbody>
+      <tfoot><tr>
+        <td style="padding:8px 10px;font-size:12px">Total</td>
+        <td style="padding:8px 10px;font-size:12px;text-align:right">${fmt(monthlyData.reduce((s, m) => s + m.revenue, 0))}</td>
+        <td style="padding:8px 10px;font-size:12px;text-align:right">${fmt(monthlyData.reduce((s, m) => s + m.expenses, 0))}</td>
+        <td style="padding:8px 10px;font-size:12px;text-align:right;color:#d97706">${fmt(monthlyData.reduce((s, m) => s + m.profit, 0))}</td>
+      </tr></tfoot>
+    </table>
+  </div>` : ""}
+
+  <!-- Staff Performance -->
+  ${staffPerf.length > 0 ? `<div class="card">
+    <h2>Staff Performance</h2>
+    <table>
+      <thead><tr><th>Stylist</th><th>Appointments</th><th>Revenue</th><th>Commission</th><th>Net to Salon</th></tr></thead>
+      <tbody>${staffPerf.map((s) => tableRow(s.name, String(s.appointments), fmt(s.revenue), fmt(s.commission), fmt(s.revenue - s.commission))).join("")}</tbody>
+      <tfoot><tr>
+        <td style="padding:8px 10px;font-size:12px">Total</td>
+        <td style="padding:8px 10px;font-size:12px;text-align:right">${staffPerf.reduce((s, x) => s + x.appointments, 0)}</td>
+        <td style="padding:8px 10px;font-size:12px;text-align:right">${fmt(staffPerf.reduce((s, x) => s + x.revenue, 0))}</td>
+        <td style="padding:8px 10px;font-size:12px;text-align:right">${fmt(staffPerf.reduce((s, x) => s + x.commission, 0))}</td>
+        <td style="padding:8px 10px;font-size:12px;text-align:right">${fmt(staffPerf.reduce((s, x) => s + x.revenue - x.commission, 0))}</td>
+      </tr></tfoot>
+    </table>
+  </div>` : ""}
+
+  <!-- Service Revenue -->
+  ${serviceRevenue.length > 0 ? `<div class="card">
+    <h2>Revenue by Service</h2>
+    <table>
+      <thead><tr><th>Service</th><th>Revenue</th></tr></thead>
+      <tbody>${serviceRevenue.map((s) => tableRow(s.name, fmt(s.revenue))).join("")}</tbody>
+    </table>
+  </div>` : ""}
+
+  <!-- GST -->
+  ${gstData.length > 0 ? `<div class="card">
+    <h2>GST Summary</h2>
+    <table>
+      <thead><tr><th>Month</th><th>Taxable Revenue</th><th>GST Collected</th><th>GST Payable</th></tr></thead>
+      <tbody>${gstData.map((g) => tableRow(g.month, fmt(g.taxableRevenue), fmt(g.collected), fmt(g.payable))).join("")}</tbody>
+    </table>
+  </div>` : ""}
+
+  </body></html>`;
+
+  const win = window.open("", "_blank", "width=820,height=960");
+  if (win) { win.document.write(html); win.document.close(); }
+  else alert("Pop-up blocked — please allow pop-ups for this site");
+}
+
+function exportCSV(
+  period: string,
+  overview: Overview | null,
+  monthlyData: MonthlyPoint[],
+  staffPerf: StaffPerf[],
+  serviceRevenue: ServiceRev[],
+  gstData: GstMonth[],
+) {
+  const rows: string[] = [];
+  const cell = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
+  const row = (...cols: (string | number)[]) => rows.push(cols.map(cell).join(","));
+
+  row("Profit & Loss Report", period);
+  row("Generated", new Date().toLocaleDateString("en-IN"));
+  rows.push("");
+
+  // Overview
+  row("SUMMARY");
+  row("Total Revenue", overview?.revenue ?? 0);
+  row("Total Expenses", overview?.expenses ?? 0);
+  row("Net Profit", overview?.netProfit ?? 0);
+  row("Total Clients", overview?.totalClients ?? 0);
+  row("Total Invoices", overview?.totalInvoices ?? 0);
+  row("Paid Invoices", overview?.paidInvoices ?? 0);
+  rows.push("");
+
+  // Monthly
+  if (monthlyData.length > 0) {
+    row("MONTHLY P&L");
+    row("Month", "Revenue", "Expenses", "Net Profit");
+    monthlyData.forEach((m) => row(m.month, m.revenue, m.expenses, m.profit));
+    rows.push("");
+  }
+
+  // Staff
+  if (staffPerf.length > 0) {
+    row("STAFF PERFORMANCE");
+    row("Stylist", "Appointments", "Revenue", "Commission", "Net to Salon");
+    staffPerf.forEach((s) => row(s.name, s.appointments, s.revenue, s.commission, s.revenue - s.commission));
+    rows.push("");
+  }
+
+  // Services
+  if (serviceRevenue.length > 0) {
+    row("REVENUE BY SERVICE");
+    row("Service", "Revenue");
+    serviceRevenue.forEach((s) => row(s.name, s.revenue));
+    rows.push("");
+  }
+
+  // GST
+  if (gstData.length > 0) {
+    row("GST SUMMARY");
+    row("Month", "Taxable Revenue", "GST Collected", "GST Payable");
+    gstData.forEach((g) => row(g.month, g.taxableRevenue, g.collected, g.payable));
+  }
+
+  const blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `PL_Report_${period.replace(/\s+/g, "_")}_${new Date().toISOString().split("T")[0]}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function ReportsPage() {
@@ -142,9 +339,19 @@ export default function ReportsPage() {
               </button>
             ))}
           </div>
-          <button className="flex items-center gap-1.5 px-3 py-2 border border-[#E7E5E4] bg-white rounded-lg text-sm text-[#78716C] hover:bg-[#F5F5F4] shadow-sm transition shrink-0">
+          <button
+            onClick={() => exportPDF(activePeriod, overview, monthlyData, staffPerf, serviceRevenue, gstData)}
+            className="flex items-center gap-1.5 px-3 py-2 border border-[#E7E5E4] bg-white rounded-lg text-sm text-[#78716C] hover:bg-[#F5F5F4] shadow-sm transition shrink-0"
+          >
             <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Export</span>
+            <span className="hidden sm:inline">Export PDF</span>
+          </button>
+          <button
+            onClick={() => exportCSV(activePeriod, overview, monthlyData, staffPerf, serviceRevenue, gstData)}
+            className="flex items-center gap-1.5 px-3 py-2 border border-[#E7E5E4] bg-white rounded-lg text-sm text-[#78716C] hover:bg-[#F5F5F4] shadow-sm transition shrink-0"
+          >
+            <Download className="w-4 h-4" />
+            <span className="hidden sm:inline">Export Excel</span>
           </button>
         </div>
       </div>
@@ -387,7 +594,10 @@ export default function ReportsPage() {
                           <span className={`${bold ? "font-bold text-[#1C1917]" : "text-[#1C1917]"} ${highlight ? "text-emerald-700 text-base" : ""}`}>{value}</span>
                         </div>
                       ))}
-                      <button className="flex items-center gap-1.5 text-sm text-emerald-600 font-medium hover:text-emerald-700 transition mt-2">
+                      <button
+                        onClick={() => exportCSV("GST " + activePeriod, overview, monthlyData, staffPerf, serviceRevenue, gstData)}
+                        className="flex items-center gap-1.5 text-sm text-emerald-600 font-medium hover:text-emerald-700 transition mt-2"
+                      >
                         <Download className="w-4 h-4" />
                         Download GSTR-1
                       </button>

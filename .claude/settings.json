@@ -16,13 +16,15 @@
       "Bash(cat /c/Users/Jenish/Desktop/software-salon/src/app/super-admin/tenant/[id]/page.tsx)",
       "Bash(grep -E \"\\\\.ts$|\\\\.tsx$\")",
       "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Milliseconds 800; Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue\")",
-      "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 1\")"
+      "Bash(powershell -Command \"Get-Process node -ErrorAction SilentlyContinue | Stop-Process -Force; Start-Sleep -Seconds 1\")",
+      "Bash(vercel --version)"
     ],
     "additionalDirectories": [
       "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\(dashboard)\\clients",
       "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\api\\clients",
       "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\book",
-      "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\api\\auth"
+      "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\api\\auth",
+      "c:\\Users\\Jenish\\Desktop\\software-salon\\src\\app\\api\\appointments\\[id]"
     ]
   }
 }

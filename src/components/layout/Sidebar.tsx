@@ -21,11 +21,13 @@ import {
   ChevronDown,
   LogOut,
   LucideIcon,
+  LayoutDashboard,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useAppStore } from "@/store/useAppStore";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/utils";
+import NotificationBell from "@/components/layout/NotificationBell";
 
 interface NavItem {
   path: string;
@@ -164,6 +166,16 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto overflow-x-hidden py-3 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-stone-700">
+        {/* Dashboard home */}
+        <div className="mb-2">
+          <NavItemRow
+            item={{ path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" }}
+            isActive={pathname === "/dashboard"}
+            collapsed={sidebarCollapsed}
+          />
+        </div>
+        {!sidebarCollapsed && <div className="mx-3 mb-3 border-t border-stone-800" />}
+
         {navSections.map((section) => (
           <div key={section.title} className="mb-4">
             {/* Section header */}
@@ -229,18 +241,19 @@ export default function Sidebar() {
         <div
           className={cn(
             "flex items-center gap-3 px-4 py-3",
-            sidebarCollapsed && "justify-center px-0"
+            sidebarCollapsed && "justify-center flex-col gap-2 px-0"
           )}
         >
           <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#D97706] shrink-0">
             <span className="text-white text-xs font-semibold">{initials}</span>
           </div>
-          {!sidebarCollapsed && (
+          {!sidebarCollapsed ? (
             <>
               <div className="flex flex-col min-w-0 flex-1">
                 <span className="text-stone-200 text-sm font-medium truncate">{userName}</span>
                 <span className="text-stone-500 text-xs truncate">{userRole}</span>
               </div>
+              <NotificationBell dark />
               <button
                 onClick={() => signOut({ callbackUrl: "/login" })}
                 className="p-1.5 text-stone-500 hover:text-red-400 hover:bg-stone-800 rounded-lg transition-colors shrink-0"
@@ -249,6 +262,8 @@ export default function Sidebar() {
                 <LogOut size={15} />
               </button>
             </>
+          ) : (
+            <NotificationBell dark />
           )}
         </div>
       </div>

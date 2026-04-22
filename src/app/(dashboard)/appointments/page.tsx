@@ -1,8 +1,9 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Calendar, Plus, ChevronLeft, ChevronRight, Clock, User, CheckCircle2, X, Search, Loader2 } from "lucide-react";
+import { Calendar, Plus, ChevronLeft, ChevronRight, Clock, User, CheckCircle2, X, Search, Loader2, UserPlus, Play, UserX, Receipt } from "lucide-react";
+import Link from "next/link";
 import { formatINR, getInitials, getAvatarColor, getStatusColor } from "@/lib/utils";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
 const statusLabel: Record<string, string> = {
   CONFIRMED: "Confirmed",
@@ -48,11 +49,18 @@ export default function AppointmentsPage() {
   const [services, setServices] = useState<Service[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [clientResults, setClientResults] = useState<Client[]>([]);
+  const [clientSearchDone, setClientSearchDone] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
+  const [showNewClientInline, setShowNewClientInline] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientPhone, setNewClientPhone] = useState("");
+  const [newClientEmail, setNewClientEmail] = useState("");
+  const [savingNewClient, setSavingNewClient] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState<NewAppt>(DEFAULT_APPT);
   const [saving, setSaving] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const fetchAppointments = useCallback(async (date: string) => {
     setLoading(true);
@@ -81,11 +89,28 @@ export default function AppointmentsPage() {
   }, []);
 
   useEffect(() => {
-    if (!clientSearch.trim()) { setClientResults([]); return; }
+    if (!clientSearch.trim()) {
+      setClientResults([]);
+      setClientSearchDone(false);
+      setShowNewClientInline(false);
+      return;
+    }
+    setClientSearchDone(false);
     const t = setTimeout(() => {
       fetch(`/api/clients?search=${encodeURIComponent(clientSearch)}`)
         .then((r) => r.json())
-        .then((data) => setClientResults(Array.isArray(data) ? data.slice(0, 8) : []));
+        .then((data) => {
+          const results = Array.isArray(data) ? data.slice(0, 8) : [];
+          setClientResults(results);
+          setClientSearchDone(true);
+          // If no results and it looks like a phone number, pre-fill phone in create form
+          if (results.length === 0) {
+            const isPhone = /^\d+$/.test(clientSearch.trim());
+            setNewClientPhone(isPhone ? clientSearch.trim().slice(0, 10) : "");
+            setNewClientName("");
+            setNewClientEmail("");
+          }
+        });
     }, 300);
     return () => clearTimeout(t);
   }, [clientSearch]);
@@ -94,6 +119,32 @@ export default function AppointmentsPage() {
     const d = new Date(selectedDate);
     d.setDate(d.getDate() + delta);
     setSelectedDate(d.toISOString().split("T")[0]);
+  }
+
+  async function updateStatus(id: string, status: string) {
+    setUpdatingId(id);
+    try {
+      const res = await fetch(`/api/appointments/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setAppointments((prev) =>
+        prev.map((a) => (a.id === id ? { ...a, status } : a))
+      );
+      const labels: Record<string, string> = {
+        IN_PROGRESS: "Marked In Progress",
+        COMPLETED: "Marked Completed",
+        NO_SHOW: "Marked No Show",
+        CONFIRMED: "Confirmed",
+      };
+      toast.success(labels[status] ?? "Updated");
+    } catch {
+      toast.error("Could not update status");
+    } finally {
+      setUpdatingId(null);
+    }
   }
 
   const selectedService = services.find((s) => s.id === form.serviceId);
@@ -124,9 +175,35 @@ export default function AppointmentsPage() {
       setShowModal(false);
       setForm(DEFAULT_APPT);
       setClientSearch("");
+      setClientResults([]);
+      setClientSearchDone(false);
+      setShowNewClientInline(false);
       fetchAppointments(selectedDate);
     } catch (err: any) { toast.error(err.message); }
     finally { setSaving(false); }
+  }
+
+  async function saveNewClientInline() {
+    if (!newClientName.trim()) { toast.error("Client name is required"); return; }
+    if (!/^\d{10}$/.test(newClientPhone)) { toast.error("Phone must be exactly 10 digits"); return; }
+    setSavingNewClient(true);
+    try {
+      const res = await fetch("/api/clients", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newClientName.trim(), phone: newClientPhone, email: newClientEmail.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) { toast.error(data.error ?? "Failed to create client"); return; }
+      // Auto-select newly created client
+      setForm((f) => ({ ...f, clientId: data.id }));
+      setClientSearch(data.name);
+      setClientResults([]);
+      setClientSearchDone(false);
+      setShowNewClientInline(false);
+      toast.success(`${data.name} added as a new client`);
+    } catch { toast.error("Failed to create client"); }
+    finally { setSavingNewClient(false); }
   }
 
   const displayDate = new Date(selectedDate + "T00:00:00");
@@ -134,8 +211,6 @@ export default function AppointmentsPage() {
 
   return (
     <div className="space-y-6">
-      <Toaster position="top-right" />
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -198,28 +273,82 @@ export default function AppointmentsPage() {
           </div>
         ) : (
           <div className="divide-y divide-[#E7E5E4]">
-            {appointments.map((appt) => (
-              <div key={appt.id} className="flex items-center gap-4 p-4 hover:bg-[#FAFAF9] transition">
-                <div className="text-center w-20 shrink-0">
-                  <p className="text-[#D97706] font-bold text-sm">{appt.time}</p>
-                  <p className="text-[#78716C] text-xs">{appt.duration}m</p>
+            {appointments.map((appt) => {
+              const isUpdating = updatingId === appt.id;
+              return (
+                <div key={appt.id} className="flex items-center gap-3 p-4 hover:bg-[#FAFAF9] transition">
+                  {/* Time */}
+                  <div className="text-center w-16 shrink-0">
+                    <p className="text-[#D97706] font-bold text-sm">{appt.time}</p>
+                    <p className="text-[#78716C] text-xs">{appt.duration}m</p>
+                  </div>
+
+                  {/* Avatar */}
+                  <div className={`w-9 h-9 rounded-full ${getAvatarColor(appt.clientName)} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
+                    {getInitials(appt.clientName)}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-[#1C1917] text-sm truncate">{appt.clientName}</p>
+                    <p className="text-[#78716C] text-xs truncate">{appt.serviceName}
+                      {appt.staffName ? <span className="text-stone-400"> · {appt.staffName}</span> : null}
+                    </p>
+
+                    {/* Action buttons — show below name on all screens */}
+                    {!isUpdating && (
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        {(appt.status === "CONFIRMED" || appt.status === "PENDING") && (
+                          <>
+                            <button onClick={() => updateStatus(appt.id, "IN_PROGRESS")}
+                              className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 bg-blue-50 text-blue-600 border border-blue-200 rounded-full hover:bg-blue-100 transition">
+                              <Play className="w-2.5 h-2.5" />Start
+                            </button>
+                            <button onClick={() => updateStatus(appt.id, "NO_SHOW")}
+                              className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-full hover:bg-rose-100 transition">
+                              <UserX className="w-2.5 h-2.5" />No Show
+                            </button>
+                          </>
+                        )}
+                        {appt.status === "IN_PROGRESS" && (
+                          <>
+                            <button onClick={() => updateStatus(appt.id, "COMPLETED")}
+                              className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-full hover:bg-emerald-100 transition">
+                              <CheckCircle2 className="w-2.5 h-2.5" />Mark Done
+                            </button>
+                            <button onClick={() => updateStatus(appt.id, "NO_SHOW")}
+                              className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-full hover:bg-rose-100 transition">
+                              <UserX className="w-2.5 h-2.5" />No Show
+                            </button>
+                          </>
+                        )}
+                        {appt.status === "COMPLETED" && (
+                          <Link href="/finance/billing"
+                            className="flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full hover:bg-amber-100 transition">
+                            <Receipt className="w-2.5 h-2.5" />Bill
+                          </Link>
+                        )}
+                      </div>
+                    )}
+                    {isUpdating && (
+                      <div className="flex items-center gap-1 mt-1.5 text-[10px] text-[#78716C]">
+                        <Loader2 className="w-3 h-3 animate-spin" />Updating...
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Status badge */}
+                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium border shrink-0 ${getStatusColor(appt.status)}`}>
+                    {statusLabel[appt.status] ?? appt.status}
+                  </span>
+
+                  {/* Amount */}
+                  <div className="text-right shrink-0">
+                    <p className="font-semibold text-[#1C1917] text-sm">{formatINR(appt.amount)}</p>
+                  </div>
                 </div>
-                <div className={`w-9 h-9 rounded-full ${getAvatarColor(appt.clientName)} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
-                  {getInitials(appt.clientName)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-[#1C1917] text-sm truncate">{appt.clientName}</p>
-                  <p className="text-[#78716C] text-xs truncate">{appt.serviceName}</p>
-                </div>
-                <div className="hidden sm:block text-sm text-[#78716C]">{appt.staffName}</div>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-medium border ${getStatusColor(appt.status)}`}>
-                  {statusLabel[appt.status] ?? appt.status}
-                </span>
-                <div className="text-right shrink-0">
-                  <p className="font-semibold text-[#1C1917] text-sm">{formatINR(appt.amount)}</p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
             {appointments.length === 0 && (
               <div className="p-8 text-center text-[#78716C]">No appointments on this day</div>
             )}
@@ -230,13 +359,13 @@ export default function AppointmentsPage() {
       {/* New Appointment Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowModal(false)} />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowModal(false); setShowNewClientInline(false); setClientSearch(""); setClientResults([]); setClientSearchDone(false); }} />
           <div className="relative bg-white w-full sm:max-w-lg rounded-t-2xl sm:rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between p-5 border-b border-[#E7E5E4] sticky top-0 bg-white rounded-t-2xl z-10">
               <h2 className="font-bold text-[#1C1917] text-lg" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
                 New Appointment
               </h2>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-[#F5F5F4] rounded-lg transition">
+              <button onClick={() => { setShowModal(false); setShowNewClientInline(false); setClientSearch(""); setClientResults([]); setClientSearchDone(false); }} className="p-2 hover:bg-[#F5F5F4] rounded-lg transition">
                 <X className="w-5 h-5 text-[#78716C]" />
               </button>
             </div>
@@ -259,14 +388,16 @@ export default function AppointmentsPage() {
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#78716C]" />
                     <input type="text" placeholder="Search by name or phone..." value={clientSearch}
-                      onChange={(e) => { setClientSearch(e.target.value); setForm((f) => ({ ...f, clientId: "" })); }}
+                      onChange={(e) => { setClientSearch(e.target.value); setForm((f) => ({ ...f, clientId: "" })); setShowNewClientInline(false); }}
                       className="w-full pl-9 pr-4 py-2.5 border border-[#E7E5E4] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#D97706]" />
-                    {clientSearch && clientResults.length > 0 && (
-                      <div className="absolute top-full mt-1 w-full bg-white border border-[#E7E5E4] rounded-xl shadow-lg z-20 max-h-48 overflow-y-auto">
+
+                    {/* Results dropdown */}
+                    {clientSearch && !form.clientId && (clientResults.length > 0 || (clientSearchDone && clientResults.length === 0)) && (
+                      <div className="absolute top-full mt-1 w-full bg-white border border-[#E7E5E4] rounded-xl shadow-lg z-20 overflow-hidden">
                         {clientResults.map((c) => (
                           <button key={c.id} type="button"
-                            onClick={() => { setForm((f) => ({ ...f, clientId: c.id })); setClientSearch(c.name); setClientResults([]); }}
-                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#FAFAF9] transition text-left">
+                            onClick={() => { setForm((f) => ({ ...f, clientId: c.id })); setClientSearch(c.name); setClientResults([]); setClientSearchDone(false); setShowNewClientInline(false); }}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-[#FAFAF9] transition text-left border-b border-[#F5F5F4] last:border-0">
                             <div className={`w-8 h-8 rounded-full ${getAvatarColor(c.name)} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
                               {getInitials(c.name)}
                             </div>
@@ -276,8 +407,52 @@ export default function AppointmentsPage() {
                             </div>
                           </button>
                         ))}
+
+                        {/* No results — show create option */}
+                        {clientSearchDone && clientResults.length === 0 && !showNewClientInline && (
+                          <div className="px-3 py-3">
+                            <p className="text-xs text-[#78716C] mb-2">No client found for "<span className="font-medium text-[#1C1917]">{clientSearch}</span>"</p>
+                            <button type="button"
+                              onClick={() => setShowNewClientInline(true)}
+                              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-sm font-medium hover:bg-amber-100 transition">
+                              <UserPlus className="w-4 h-4" />
+                              Create new client
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Inline create form */}
+                        {showNewClientInline && (
+                          <div className="p-3 border-t border-[#E7E5E4] bg-[#FAFAF9] space-y-2.5">
+                            <p className="text-xs font-semibold text-[#1C1917] flex items-center gap-1.5">
+                              <UserPlus className="w-3.5 h-3.5 text-amber-600" />
+                              New Client Details
+                            </p>
+                            <input type="text" placeholder="Full name *" value={newClientName}
+                              onChange={(e) => setNewClientName(e.target.value)}
+                              className="w-full px-3 py-2 border border-[#E7E5E4] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D97706] bg-white" />
+                            <input type="tel" placeholder="Phone number * (10 digits)" value={newClientPhone}
+                              onChange={(e) => setNewClientPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                              className="w-full px-3 py-2 border border-[#E7E5E4] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D97706] bg-white" />
+                            <input type="email" placeholder="Email (optional)" value={newClientEmail}
+                              onChange={(e) => setNewClientEmail(e.target.value)}
+                              className="w-full px-3 py-2 border border-[#E7E5E4] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D97706] bg-white" />
+                            <div className="flex gap-2">
+                              <button type="button" onClick={() => setShowNewClientInline(false)}
+                                className="flex-1 py-1.5 text-xs border border-[#E7E5E4] rounded-lg text-[#78716C] hover:bg-white transition">
+                                Cancel
+                              </button>
+                              <button type="button" onClick={saveNewClientInline} disabled={savingNewClient}
+                                className="flex-1 py-1.5 text-xs bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-1">
+                                {savingNewClient && <Loader2 className="w-3 h-3 animate-spin" />}
+                                {savingNewClient ? "Saving..." : "Save & Select"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
+
                     {form.clientId && (
                       <p className="mt-1.5 text-xs text-emerald-600 font-medium">✓ {clientSearch} selected</p>
                     )}

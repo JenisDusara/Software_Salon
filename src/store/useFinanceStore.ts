@@ -35,7 +35,9 @@ export interface ActiveBill {
   clientId?: string;
   clientName?: string;
   clientPhone?: string;
+  clientLoyaltyPoints?: number;
   walkInName?: string;
+  isWalkIn?: boolean;
   staffId?: string;
   appointmentId?: string;
   items: CartItem[];

@@ -20,6 +20,7 @@ import {
   X,
   ChevronDown,
   LucideIcon,
+  LayoutDashboard,
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { cn } from "@/lib/utils";
@@ -154,6 +155,28 @@ export default function MobileSidebar({ isOpen, onClose }: MobileSidebarProps) {
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-3">
+          {/* Dashboard */}
+          <div className="mb-3">
+            {(() => {
+              const isActive = pathname === "/dashboard";
+              return (
+                <Link href="/dashboard" className="block relative">
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 bg-[#D97706] rounded-r-full" />
+                  )}
+                  <div className={cn(
+                    "flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg transition-colors duration-150",
+                    isActive ? "bg-[#D97706]/10 text-[#D97706]" : "text-stone-400 hover:bg-[#292524] hover:text-stone-100"
+                  )}>
+                    <LayoutDashboard size={18} className={cn("shrink-0", isActive ? "text-[#D97706]" : "")} />
+                    <span className="text-sm font-medium">Dashboard</span>
+                  </div>
+                </Link>
+              );
+            })()}
+          </div>
+          <div className="mx-3 mb-3 border-t border-stone-800" />
+
           {navSections.map((section) => (
             <div key={section.title} className="mb-4">
               <p className="px-6 mb-1.5 text-[10px] font-semibold tracking-widest text-stone-500 uppercase">

@@ -6,8 +6,10 @@ import Sidebar from "@/components/layout/Sidebar";
 import TopBar from "@/components/layout/TopBar";
 import BottomNav from "@/components/layout/BottomNav";
 import MobileSidebar from "@/components/layout/MobileSidebar";
+import AppointmentNotifier from "@/components/layout/AppointmentNotifier";
 import { useAppStore } from "@/store/useAppStore";
 import { ShieldCheck, LogOut } from "lucide-react";
+import { Toaster } from "react-hot-toast";
 
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
@@ -60,6 +62,11 @@ export default function DashboardLayout({
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#FAFAF9]">
+      {/* Global appointment notifier — runs silently in background */}
+      <AppointmentNotifier />
+      {/* Global toaster for notifications */}
+      <Toaster position="top-right" />
+
       {/* Desktop sidebar */}
       <Sidebar />
 

@@ -1,11 +1,12 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Menu, Bell, LogOut } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
 import { useAppStore } from "@/store/useAppStore";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/utils";
+import NotificationBell from "@/components/layout/NotificationBell";
 
 const routeTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -69,13 +70,7 @@ export default function TopBar({ onMenuClick, title }: TopBarProps) {
 
       {/* Right: Bell + Avatar + Logout */}
       <div className="flex items-center gap-1">
-        <button
-          className="relative flex items-center justify-center w-9 h-9 rounded-lg text-stone-600 hover:bg-stone-100 transition-colors duration-150"
-          aria-label="Notifications"
-        >
-          <Bell size={20} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#D97706] rounded-full ring-2 ring-white" />
-        </button>
+        <NotificationBell />
         <div className="flex items-center justify-center w-9 h-9 rounded-full bg-[#D97706]">
           <span className="text-white text-xs font-semibold">{initials}</span>
         </div>

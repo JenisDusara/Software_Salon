@@ -5,7 +5,7 @@ import {
   Plus, X, CheckCircle2, Clock, ChevronRight, Gift, Bell, Heart, Tag, Loader2,
 } from "lucide-react";
 import { buildWhatsAppUrl, getInitials, getAvatarColor } from "@/lib/utils";
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -191,16 +191,6 @@ export default function MarketingPage() {
     resetForm();
   }
 
-  function handleSendToClient(client: Client) {
-    const personalised = message
-      .replace(/{{name}}/g, client.name.split(" ")[0])
-      .replace(/{{points}}/g, String(client.loyaltyPoints))
-      .replace(/{{value}}/g, String(Math.floor(client.loyaltyPoints / 100) * 50))
-      .replace(/{{time}}/g, "11:00 AM");
-    const url = buildWhatsAppUrl(client.phone, personalised);
-    window.open(url, "_blank");
-  }
-
   function resetForm() {
     setCampaignName("");
     setCampaignType("promotion");
@@ -213,8 +203,6 @@ export default function MarketingPage() {
 
   return (
     <div className="space-y-6">
-      <Toaster position="top-right" />
-
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
